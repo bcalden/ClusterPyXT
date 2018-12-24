@@ -40,16 +40,7 @@ def process_commandline_arguments(cluster_obj):
     if args.init_cluster:
         cluster_obj.initialize_cluster()
     if args.config_file != "":
-        if io.file_exists(args.config_file):
-            cluster_obj = cluster.read_cluster_data(args.config_file)
-        else:
-            config_file = cluster.get_cluster_config(args.config_file)
-            if config_file:
-                cluster_obj = cluster.read_cluster_data(config_file)
-            else:
-                print("Error finding cluster configuration file. Try passing the full path to the file.")
-                return
-
+        cluster_obj = get_cluster(args.config_file)
     if args.cont:
         ciao.start_from_last(cluster_obj)
     if args.download_data:
@@ -60,6 +51,18 @@ def process_commandline_arguments(cluster_obj):
         ciao.remove_sources(cluster_obj)
     return cluster_obj
 
+
+def get_cluster(config_file_arg):
+    if io.file_exists(config_file_arg):
+        cluster_obj = cluster.read_cluster_data(config_file_arg)
+    else:
+        config_file = cluster.get_cluster_config(config_file_arg)
+        if config_file:
+            cluster_obj = cluster.read_cluster_data(config_file)
+        else:
+            print("Error finding cluster configuration file. Try passing the full path to the file.")
+            return
+    return cluster_obj
 
 def get_arguments():
     help_str = """
@@ -97,7 +100,6 @@ def get_arguments():
     parser.add_argument('--obsids', dest='obsids', action='store', nargs='+', default=None)
     parser.add_argument('--abundance', dest='abundance', action='store', default=None)
     args = parser.parse_args()
-
 
     # logger.debug("Finished getting commandline arguments")
 
