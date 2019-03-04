@@ -32,6 +32,7 @@ import ciao
 def process_commandline_arguments(cluster_obj):
     print("Processing commandline arguments")
     args = get_arguments()
+    cluster_obj = None
     if io.file_exists(args.batch_file):
         ciao.automated_cluster_init(args.batch_file)
     if None not in [args.name, args.abundance, args.nH, args.redshift, args.obsids]:
@@ -49,8 +50,14 @@ def process_commandline_arguments(cluster_obj):
             else:
                 print("Error finding cluster configuration file. Try passing the full path to the file.")
                 return
-
     if args.cont:
+        if cluster_obj is None:
+            cluster_obj = config.current_cluster()
+            if cluster_obj is None:
+                print("Cannot find a current working cluster.")
+                exit(-1)
+        print("Continuing {}.".format(cluster_obj.name))
+
         ciao.start_from_last(cluster_obj)
     if args.download_data:
         if 0 == cluster_obj.last_step_completed:
@@ -97,7 +104,6 @@ def get_arguments():
     parser.add_argument('--obsids', dest='obsids', action='store', nargs='+', default=None)
     parser.add_argument('--abundance', dest='abundance', action='store', default=None)
     args = parser.parse_args()
-
 
     # logger.debug("Finished getting commandline arguments")
 

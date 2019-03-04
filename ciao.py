@@ -473,13 +473,15 @@ def generate_light_curve(observation):
     infile = "{}[bin time={}:{}:{}]".format(data_hiE, tstart, tstop, backbin)
     outfile = "{}/acisI_lcurve_hiE.lc".format(obsid_analysis_dir)
 
+    print('Running dmextract infile={} outfile={} opt=ltc1 clobber=True'.format(infile, outfile))
+
     rt.dmextract(infile=infile,
                  outfile=outfile,
                  opt='ltc1', clobber=True)
 
     lcurve_hiE = outfile
 
-    print("cleaning the lightcurve for {}".format(observation.id))
+    print("cleaning the lightcurve for {}, press enter to continue.".format(observation.id))
 
     rt.deflare.punlearn()
 
@@ -559,7 +561,7 @@ def lightcurves_with_exclusion(cluster):
 
         lcurve = outfile
 
-        print("Cleaning the lightcurve by removing flares with deflare")
+        print("Cleaning the lightcurve by removing flares with deflare. Press enter to continue.")
 
         rt.deflare.punlearn()
         infile = lcurve

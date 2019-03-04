@@ -147,11 +147,11 @@ def create_scale_map_region_index(cluster: cluster.ClusterObj):
                  overwrite=True)  # self explanatory
 
 
-def _update_completed_things(current, max, thing):
+def _update_completed_things(current, max_num, thing):
     io.move_cursor_left(1000)
     io.write("{current} out of {max} {thing} complete.".format(
         current=current,
-        max=max,
+        max=max_num,
         thing=thing
     ))
     io.flush()
@@ -550,7 +550,7 @@ def prepare_for_spec(cluster_obj: cluster.ClusterObj):
         #     ))
 
 
-def     make_commands_lis(cluster: cluster.ClusterObj, resolution):
+def make_commands_lis(cluster: cluster.ClusterObj, resolution):
     from astropy.io import fits
 
     print("Creating {}".format(cluster.command_lis))
@@ -561,11 +561,11 @@ def     make_commands_lis(cluster: cluster.ClusterObj, resolution):
     start_time = time.time()
 
     scalemap = cluster.scale_map
-    mask = fits.open(cluster.combined_mask)[0].data
+    # mask = fits.open(cluster.combined_mask)[0].data
     region_list = cluster.scale_map_regions_to_fit(resolution)
-    sz = scalemap.shape
-    sx = sz[0]
-    sy = sz[1]
+    #sz = scalemap.shape
+    #sx = sz[0]
+    #sy = sz[1]
 
     command_string = []
 
@@ -638,9 +638,9 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
     # that is, region number 1 is coordinate array index 0
     # region 100 = coordinates[99]
 
-    high_res_offset = 0
-    med_res_offset = 1
-    low_res_offset = 2
+    # high_res_offset = 0
+    # med_res_offset = 1
+    # low_res_offset = 2
 
     io.make_directory(cluster.output_dir)
 
