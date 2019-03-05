@@ -4,6 +4,34 @@ import csv
 import config
 import pypeline_io as io
 import numpy as np
+import astropy.io.fits as fits # migrate pycrates commands to fits
+
+acisI = [0, 1, 2, 3]
+acisS = [4, 5, 6, 7, 8, 9]
+back_illuminated_ids = [5, 7]
+
+
+class CCD:
+    def __init__(self, observation=None, id=None):
+        self.observation = observation
+        self.id = id
+        if self.id in acisI:
+            self.type = "I"
+        elif self.id in acisS:
+            self.type = "S"
+            print("")
+        else:
+            print("Error with observation {} chip id {}. Cannot determine type (ACIS-I or ACIS-S).".format(
+                observation.id, self.id))
+            exit(-1)
+        if self.id in back_illuminated_ids:
+            self.back_illuminated = True
+        else:
+            self.back_illuminated = False
+
+    def __repr__(self):
+        return "OBSID {}:ACIS-{}:CCD {}: Back Illuminated={}".format(self.observation.id, self.type, self.id,
+                                                                     self.back_illuminated)
 
 
 class Observation:
@@ -13,6 +41,41 @@ class Observation:
                  ):
         self.id = obsid
         self.cluster = cluster
+        self.ccds = self.get_ccds()
+        self.acis_I_chips, self.acis_S_chips = self.get_acis_I_and_S_chips()
+
+        if len(self.acis_S_chips) > 0:
+            print("Observation {} has ACIS-S data that is not yet supported. "
+                  "Feel free to implement and submit a pull request!".format(self.id))
+            if len(self.acis_I_chips) > 0:
+                print("ACIS-I chips to be used:")
+                for ccd in self.acis_I_chips:
+                    print(ccd)
+
+    def get_ccds(self):
+        chip_ids = self.oif_detnam
+
+        ccds = []
+        if chip_ids[:5].upper() == "ACIS-":
+            ids = chip_ids[5:]
+
+            for chip in ids:
+                ccds.append(CCD(observation=self, id=int(chip)))
+        else:
+            print("Error determining ACIS CCDs used. Check observation {} and try again".format(observation.id))
+            exit(-1)
+
+        return ccds
+
+    def get_acis_I_and_S_chips(self):
+        acis_I_ccds = []
+        acis_S_ccds = []
+        for ccd in self.ccds:
+            if ccd.type == 'I':
+                acis_I_ccds.append(ccd)
+            else:
+                acis_S_ccds.append(ccd)
+        return acis_I_ccds, acis_S_ccds
 
     @property
     def directory(self):
@@ -22,6 +85,18 @@ class Observation:
     @property
     def exclude(self):
         return self.cluster.exclude_file
+
+    @property
+    def oif_filename(self):
+        return io.get_path("{obs_dir}/oif.fits".format(obs_dir=self.directory))
+
+    @property
+    def oif_fits(self):
+        return fits.open(self.oif_filename)
+
+    @property
+    def oif_detnam(self):
+        return self.oif_fits[1].header['detnam']
 
     @property
     def analysis_directory(self):
