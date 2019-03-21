@@ -827,18 +827,14 @@ def runpipe5(cluster):
 
     # the contents of this for loop should be refactored/replaced with the make_acisI_and_back function
     for observation in cluster.observations:
-
-        print("{} shape: {}".format(observation.clean, fits.open(observation.clean)[0].shape))
-
-        # clean data
         infile = "{}[sky=region({})]".format(observation.clean, cluster.master_crop_file)
         outfile = cluster.temp_acisI_comb
         clobber = True
 
-        print("{} shape: {}".format(outfile, fits.open(outfile)[0].shape))
-
         rt.dmcopy.punlearn()
         rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+
+        print("{} shape: {}".format(outfile, fits.open(outfile)[0].shape))
 
         infile = "{}[bin sky=4][energy=700:8000]".format(cluster.temp_acisI_comb)
         outfile = observation.acisI_comb_img
