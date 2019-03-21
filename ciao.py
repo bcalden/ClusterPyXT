@@ -19,6 +19,8 @@ except ImportError:
 
 
 def download_data(cluster):
+    # refactor to make use of the observation class
+
     io.set_working_directory(cluster.directory)
     print("Downloading observation id(s) {}".format(cluster.observation_ids))
 
@@ -31,6 +33,8 @@ def download_data(cluster):
         success.append(download_chandra_obsids([observation]))
         if success[-1]:
             print("Successfully downloaded data for observation {}.".format(observation))
+            cluster.observation(observation).set_ccds()
+            #observation.set_ccds()
         else:
             print("Failed trying to download data for observation {}.".format(observation))
 
@@ -527,10 +531,7 @@ def lightcurves_with_exclusion(cluster):
 
         image_nosrc = "{}/img_acisI_nosrc_fullE.fits".format(observation.analysis_directory)
 
-        yes_or_no = io.check_yes_no(
-            "Are there sources to be excluded from observation {} while making the lightcurve? ".format(observation.id))
-
-        if yes_or_no:  # yes_or_no == True
+        if io.file_exists(observation.exclude_file):
             print("Removing sources from event file to be used in lightcurve")
 
             infile = "{}[exclude sky=region({})]".format(data_nosrc_hiEfilter, observation.exclude)
@@ -542,7 +543,13 @@ def lightcurves_with_exclusion(cluster):
 
             data_lcurve = "{}/acisI_lcurve.fits".format(observation.analysis_directory)
         else:
-            data_lcurve = data_nosrc_hiEfilter
+            yes_or_no = io.check_yes_no(
+                "Are there sources to be excluded from observation {} while making the lightcurve? ".format(observation.id))
+
+            if yes_or_no:  # yes_or_no == True
+                print("Create the a region file with the region to be excluded and save it as {}".format(observation.exclude_file))
+            else:
+                data_lcurve = data_nosrc_hiEfilter
 
         backbin = 259.28
 
@@ -697,6 +704,8 @@ def make_mask_file(observation):
     original_fits_filename = observation.acisI_comb_img
 
     mask = fits.open(original_fits_filename)
+
+    print("{} shape: {}".format(original_fits_filename, mask[0].shape))
     mask[0].data = np.ones_like(mask[0].data)
 
     mask_filename = observation.temp_acis_comb_mask_filename
@@ -735,35 +744,51 @@ def make_cumulative_mask_file(cluster, observation):
         current_mask = fits.open(current_obs_mask_filename)
         cumulative_mask = fits.open(cumulative_mask_filename)
 
+        print("Cumulative mask {} shape:{}".format(cumulative_mask_filename,
+                                                   cumulative_mask[0].shape))
+        print("current mask {} shape:{}".format(current_obs_mask_filename,
+                                                   current_mask[0].shape))
+
         current_mask[0].data = current_mask[0].data + cumulative_mask[0].data
-        # from idl
-        # newcumulativemask = currentmask + cumulativemask
-        # newcumulativemask[where(newcumulativemask gt 1)] = 1
-        # all values that are greater than 1 make 1?
+
         current_mask[0].data[np.where(current_mask[0].data > 1)] = 1
         current_mask.writeto(cumulative_mask_filename, overwrite=True)
 
 
-
-
 def make_acisI_and_back_for(observation, cluster):
+    from astropy.io import fits
+
     rt.dmcopy.punlearn()
     rt.dmcopy(
-        infile="{clean_file}[sky=region({mask})]".format(clean_file=observation.clean, mask=cluster.master_crop_file),
+        infile="{clean_file}[sky=region({mask})]".format(
+            clean_file=observation.clean, mask=cluster.master_crop_file),
         outfile=cluster.temp_acisI_comb,
         clobber=True
     )
 
+    shp = fits.open(cluster.temp_acisI_comb)[0].shape
+    print(observation.clean)
+    print("{} shape {}".format(cluster.temp_acisI_comb,
+                               shp))
+
     rt.dmcopy.punlearn()
     rt.dmcopy(
-        infile="{temp_acisI_combined}[bin sky=4][energy=700:8000]".format(temp_acisI_combined=cluster.temp_acisI_comb),
+        infile="{temp_acisI_combined}[bin sky=4][energy=700:8000]".format(
+            temp_acisI_combined=cluster.temp_acisI_comb),
         outfile=observation.acisI_comb_img,
         clobber=True
     )
 
+    shp = fits.open(observation.acisI_comb_img)[0].shape
+
+    print("{} shape {}".format(observation.acisI_comb_img,
+                               shp))
+
     rt.dmcopy.punlearn()
     rt.dmcopy(
-        infile="{back_file}[sky=region({mask})]".format(back_file=observation.back, mask=cluster.master_crop_file),
+        infile="{back_file}[sky=region({mask})]".format(
+            back_file=observation.back,
+            mask=cluster.master_crop_file),
         outfile=cluster.temp_backI_comb,
         clobber=True
     )
@@ -789,6 +814,8 @@ def run_ds9_for_master_crop(cluster):
 
 
 def runpipe5(cluster):
+    print("runpipe5")
+    from astropy.io import fits
     # This portion of the pypeline 
     combined_dir = cluster.combined_directory
 
@@ -798,12 +825,17 @@ def runpipe5(cluster):
         print("Master crop file not found")
         run_ds9_for_master_crop(cluster)
 
+    # the contents of this for loop should be refactored/replaced with the make_acisI_and_back function
     for observation in cluster.observations:
+
+        print("{} shape: {}".format(observation.clean, fits.open(observation.clean)[0].shape))
 
         # clean data
         infile = "{}[sky=region({})]".format(observation.clean, cluster.master_crop_file)
         outfile = cluster.temp_acisI_comb
         clobber = True
+
+        print("{} shape: {}".format(outfile, fits.open(outfile)[0].shape))
 
         rt.dmcopy.punlearn()
         rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)

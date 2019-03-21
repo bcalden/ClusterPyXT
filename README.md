@@ -43,3 +43,9 @@ Check the `clustername/main_output/` directory for the output.
 
 ### Pressure Map Creation
 After generating the temperature map, there is now enough data to generate the pseudo pressure map. Simply run `python acb.py --make_pressure_map --cluster_config_file 'path/to/config/file'`. Check the `clustername/main_output` directory for the output.
+
+## License
+This software is licensed under a 3-clause BSD style license - see the LICENSE.md file
+
+## Citation
+If you make use of this code in its original form or portions of it, please cite: [arXiv:1903.08215](https://arxiv.org/abs/1903.08215) 

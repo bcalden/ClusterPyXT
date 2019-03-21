@@ -1,4 +1,5 @@
 import os
+import errno
 import configparser
 import csv
 import config
@@ -41,16 +42,23 @@ class Observation:
                  ):
         self.id = obsid
         self.cluster = cluster
-        self.ccds = self.get_ccds()
-        self.acis_I_chips, self.acis_S_chips = self.get_acis_I_and_S_chips()
+        self.set_ccds()
 
-        if len(self.acis_S_chips) > 0:
-            print("Observation {} has ACIS-S data that is not yet supported. "
-                  "Feel free to implement and submit a pull request!".format(self.id))
-            if len(self.acis_I_chips) > 0:
-                print("ACIS-I chips to be used:")
-                for ccd in self.acis_I_chips:
-                    print(ccd)
+    def set_ccds(self):
+        try:
+            self.ccds = self.get_ccds()
+            self.acis_I_chips, self.acis_S_chips = self.get_acis_I_and_S_chips()
+
+            if len(self.acis_S_chips) > 0:
+                print("Observation {} has ACIS-S data that is not yet supported. "
+                      "Feel free to implement and submit a pull request!".format(self.id))
+                if len(self.acis_I_chips) > 0:
+                    print("ACIS-I chips to be used:")
+                    for ccd in self.acis_I_chips:
+                        print(ccd)
+        except FileNotFoundError:
+            print("Observation {} not yet downloaded".format(self.id))
+            pass
 
     def get_ccds(self):
         chip_ids = self.oif_detnam
@@ -82,8 +90,12 @@ class Observation:
         return io.get_path("{cluster_dir}/{obsid}/".format(cluster_dir=self.cluster.directory,
                                                            obsid=self.id))
 
-    @property
+    @property  # refactor so exclude points to the content of the file, not the file
     def exclude(self):
+        return self.cluster.exclude_file
+
+    @property
+    def exclude_file(self):
         return self.cluster.exclude_file
 
     @property
@@ -630,13 +642,16 @@ Last Step Completed: {}""".format(self.name,
         return io.get_path("{combined_dir}/master_crop-ciaowcs.reg".format(
             combined_dir=self.combined_directory))
 
+
     @property
     def temp_acisI_comb(self):
         return io.get_path("{combined_dir}/acisI_comb_img_int.fits".format(combined_dir=self.combined_directory))
 
+
     @property
     def temp_backI_comb(self):
         return io.get_path("{combined_dir}/backI_comb_img_int.fits".format(combined_dir=self.combined_directory))
+
 
     @property
     def wvt_label_map(self):
