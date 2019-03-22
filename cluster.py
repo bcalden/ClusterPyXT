@@ -1,5 +1,5 @@
 import os
-import errno
+import sys
 import configparser
 import csv
 import config
@@ -1165,9 +1165,16 @@ def get_observation_ids():
 
 
 def read_cluster_data(filename):
+
     cluster_config = configparser.ConfigParser()
+
     cluster_config.read(filename)
-    cluster_dict = dict(cluster_config['cluster'])
+
+    try:
+        cluster_dict = dict(cluster_config['cluster'])
+    except KeyError as keyerror:
+        print("Problem loading the cluster configuration file. Is {} correct?".format(filename))
+        sys.exit(1)
 
     cluster = ClusterObj()
     cluster.name = cluster_dict['name']
@@ -1183,6 +1190,7 @@ def read_cluster_data(filename):
     cluster.observations = [Observation(obsid=x, cluster=cluster) for x in cluster.observation_ids]
 
     return cluster
+
 
 def get_cluster_config(clstr_name):
     data_dir = config.data_directory()
