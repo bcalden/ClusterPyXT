@@ -36,6 +36,8 @@ def get_arguments():
                         action='store', default=2, type=int,
                         help='Generate a low, medium, or high resolution temperature map. Low = 1, Med = 2, High = 3. '
                         'High resolution is a fit for every pixel, medium pixels are 3x3, low pixels are 5x5.')
+    parser.add_argument("--dev-mtpc", dest='dev_mtpc', type=int, action="store",
+                        default=0, help="Max Task Per Child sent to mp.Pool()")
     args = parser.parse_args()
 
     return args
@@ -121,7 +123,10 @@ if __name__ == '__main__':
         if args.parallel:
             region_lists = np.array_split(regions, args.num_cpus)
 
-            pool = mp.Pool(processes=args.num_cpus)
+            if args.dev_mtpc == 0:
+                pool = mp.Pool(processes=args.num_cpus)
+            else:
+                pool = mp.Pool(processes=args.num_cpus, maxtasksperchild=args.dev_mtpc)
 
             processes = [mp.Process(target=run_in_parallel, args=(clstr, x, start_time)) for x in region_lists]
 
