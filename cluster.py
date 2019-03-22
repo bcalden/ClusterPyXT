@@ -1,5 +1,5 @@
 import os
-import errno
+import sys
 import configparser
 import csv
 import config
@@ -489,11 +489,12 @@ class ClusterObj:
             with open(self.configuration_filename, 'w') as configfile:
                 cluster_config.write(configfile)
         except FileExistsError:
-            print("File exists and I can't overwrite!")
-            raise
+            print("File exists and I can't overwrite! File: {}".format(self.configuration_filename))
+            sys.exit(1)
         except FileNotFoundError:
-            print("File not found!")
-            raise
+            print("Cannot write cluster config to {}!".format(self.configuration_filename))
+            print("Try updating your configuration file to reflect its current path.")
+            sys.exit(1)
         print("Cluster data written to {}".format(self.configuration_filename))
 
         return
@@ -1165,9 +1166,16 @@ def get_observation_ids():
 
 
 def read_cluster_data(filename):
+
     cluster_config = configparser.ConfigParser()
+
     cluster_config.read(filename)
-    cluster_dict = dict(cluster_config['cluster'])
+
+    try:
+        cluster_dict = dict(cluster_config['cluster'])
+    except KeyError as keyerror:
+        print("Problem loading the cluster configuration file. Is {} correct?".format(filename))
+        sys.exit(1)
 
     cluster = ClusterObj()
     cluster.name = cluster_dict['name']
@@ -1183,6 +1191,7 @@ def read_cluster_data(filename):
     cluster.observations = [Observation(obsid=x, cluster=cluster) for x in cluster.observation_ids]
 
     return cluster
+
 
 def get_cluster_config(clstr_name):
     data_dir = config.data_directory()

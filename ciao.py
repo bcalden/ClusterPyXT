@@ -686,7 +686,7 @@ def make_response_files(cluster):
 
         if (not io.file_exists(region_file)) or (io.file_size(region_file) == 0):
             print("Region file {} does not exist.".format(region_file))
-            print("When DS9 opens, draw a small circle that covers all of the ACIS-I chips and save it as:\n" \
+            print("When DS9 opens, draw a small circle that covers a piece of each ACIS-I chip (~20 pixels) and save it as:\n" \
                   "{}".format(region_file))
             print("Opening SAO DS9")
             io.write_contents_to_file("", region_file, False)
@@ -1096,7 +1096,7 @@ def start_from_last(cluster):
                 print("Now time to select the sources. The broad_flux.img file in the main observation directory"
                       "is the file you need to create the source region file from. You can do this by opening "
                       "that file in SAO DS9 and selecting them by hand, or using an automated tool. Save the sources"
-                      "file in the main observation directory and then rerun the pypeline.")
+                      "file in the main observation directory as sources.reg and then rerun the pypeline.")
 
 
                 #start DS9, load the broad flux FITS image, and a sources.reg file for the user to begin
