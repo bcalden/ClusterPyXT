@@ -489,11 +489,12 @@ class ClusterObj:
             with open(self.configuration_filename, 'w') as configfile:
                 cluster_config.write(configfile)
         except FileExistsError:
-            print("File exists and I can't overwrite!")
-            raise
+            print("File exists and I can't overwrite! File: {}".format(self.configuration_filename))
+            sys.exit(1)
         except FileNotFoundError:
-            print("File not found!")
-            raise
+            print("Cannot write cluster config to {}!".format(self.configuration_filename))
+            print("Try updating your configuration file to reflect its current path.")
+            sys.exit(1)
         print("Cluster data written to {}".format(self.configuration_filename))
 
         return
