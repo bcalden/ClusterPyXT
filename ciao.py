@@ -5,6 +5,7 @@ import subprocess
 import numpy as np
 import acb
 import cluster
+import sys
 import data_operations as do
 
 try:
@@ -221,13 +222,25 @@ def ciao_back(cluster, overwrite=False):
     return
 
 
+def check_chandra_repro(observation):
+    if observation.original_reprocessed_evt2_file_exists and observation.original_reprocessed_bad_pixel_file_exists:
+        return True
+    else:
+        print("Error during reprocessing. CIAO command chandra_repro produced no results for {}.".format(observation.id))
+        print("Likely an error during chandra_repro. Try deleting the cluster directory and")
+        print("starting the cluster over. If problem persists, please post an issue on GitHub.")
+        sys.exit(1)
+
+
 def reprocess_cluster(cluster):
     print("Reprocessing {}".format(cluster.name))
     for observation in cluster.observations:
         print("Reprocessing {}/{}".format(cluster.name, observation.id))
         chandra_repro(indir=observation.directory, outdir=observation.reprocessing_directory)
-
-        copy_event_files(observation.reprocessing_directory, observation.analysis_directory)
+        print("Checking to ensure {} was reprocessed.".format(observation.id))
+        check_chandra_repro(observation)
+        print("Reprocessing appears succesful. Copying reprocessed event files.")
+        copy_reprocessed_event_files(observation)
     return
 
 
@@ -262,7 +275,8 @@ def chandra_repro(indir="./", outdir="./repro", set_ardlib=False, clobber=True):
     kwargs = {'indir': indir,
               'outdir': outdir,
               'set_ardlib': set_ardlib,
-              'clobber': clobber}
+              'clobber': clobber,
+              'verbose': 1}
 
     rt.chandra_repro.punlearn()
 
@@ -271,17 +285,12 @@ def chandra_repro(indir="./", outdir="./repro", set_ardlib=False, clobber=True):
     return
 
 
-def copy_event_files(source_dir, destination_dir):
-    os.chdir(source_dir)
-    evt2_filename = io.get_filename_matching("{source_dir}/acis*repro_evt2.fits".format(source_dir=source_dir))
-    if isinstance(evt2_filename, list):
-        evt2_filename = evt2_filename[-1]
-    bpix1_filename = io.get_filename_matching("{source_dir}/*repro_bpix1.fits".format(source_dir=source_dir))
-    if isinstance(bpix1_filename, list):
-        bpix1_filename = bpix1_filename[-1]
+def copy_reprocessed_event_files(observation):
+    evt2_filename = observation.original_reprocessed_bad_pixel_filename
+    bpix1_filename = observation.original_reprocessed_bad_pixel_filename
 
-    io.copy(evt2_filename, io.get_path("{}/evt2.fits".format(destination_dir)))
-    io.copy(bpix1_filename, io.get_path("{}/bpix1_new.fits".format(destination_dir)))
+    io.copy(evt2_filename, observation.reprocessed_evt2_filename)
+    io.copy(bpix1_filename, observation.reprocessed_bad_pixel_filename)
 
     print("Copied level 2 event files")
     return None
@@ -1054,6 +1063,10 @@ def get_keyword_value(filename, keyword):
 
 def get_exposure(filename):
     return get_keyword_value(filename, "EXPOSURE")
+
+def run_stage_1(cluster):
+    download_data(cluster)
+    merge_observations(cluster)
 
 
 def start_from_last(cluster):

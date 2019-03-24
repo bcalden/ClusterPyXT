@@ -70,7 +70,7 @@ class Observation:
             for chip in ids:
                 ccds.append(CCD(observation=self, id=int(chip)))
         else:
-            print("Error determining ACIS CCDs used. Check observation {} and try again".format(observation.id))
+            print("Error determining ACIS CCDs used. Check observation {} and try again".format(self.id))
             exit(-1)
 
         return ccds
@@ -305,6 +305,46 @@ class Observation:
         ))
 
     @property
+    def original_reprocessed_evt2_filename(self):
+        evt2_filename = io.get_filename_matching("{}/acis*repro_evt2.fits".format(self.reprocessing_directory))
+        if isinstance(evt2_filename, list):
+            if len(evt2_filename) >= 1:
+                evt2_filename = evt2_filename[-1]
+                return io.get_path(evt2_filename)
+        return None
+
+    @property
+    def original_reprocessed_evt2_file_exists(self):
+        if self.original_reprocessed_evt2_filename:
+            return True
+        else:
+            return False
+
+    @property
+    def original_reprocessed_bad_pixel_filename(self):
+        bpix1_filename = io.get_filename_matching("{}/*repro_bpix1.fits".format(self.reprocessing_directory))
+        if isinstance(bpix1_filename, list):
+            if len(bpix1_filename) >= 1:
+                bpix1_filename = bpix1_filename[-1]
+                return io.get_path(bpix1_filename)
+        return None
+
+    @property
+    def original_reprocessed_bad_pixel_file_exists(self):
+        if self.original_reprocessed_bad_pixel_filename:
+            return True
+        else:
+            return False
+
+    @property
+    def reprocessed_evt2_filename(self):
+        return io.get_path("{analysis_dir}/evt2.fits".format(analysis_dir=self.analysis_directory))
+
+    @property
+    def reprocessed_bad_pixel_filename(self):
+        return io.get_path("{analysis_dir}/bpix1_new.fits".format(analysis_dir=self.analysis_directory))
+
+    @property
     def redistribution_matrix_file(self):
         return io.get_path("{analysis_directory}/globalresponse/acisI.rmf".format(
             analysis_directory=self.analysis_directory
@@ -425,8 +465,6 @@ class ClusterObj:
                  redshift=0,
                  abundance=0,
                  last_step_completed=0,
-                 combined_mask="",
-                 back_rescale=""
                  ):
         """
         Initialization method.
@@ -445,10 +483,6 @@ class ClusterObj:
             The main data repository directory. This is the directory where the script will create a cluster.name
             subdirectory.
             E.g. /home/user/username/cluster_data/
-        sources_file : str
-            A DS9 region file containing circular or elliptical regions of all point sources to be removed.
-        exclude_file : str
-            I forgot at time of writing.
         hydrogen_column_density : float
             The hydrogen column density for the cluster.
             E.g. 0.2
@@ -463,13 +497,15 @@ class ClusterObj:
             pypeline will begin if run without any arguments.
         """
         self.name = name
-        self.observation_ids = observation_ids
-        self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
         self.data_directory = data_directory
         self.hydrogen_column_density = hydrogen_column_density
         self.redshift = redshift
         self.abundance = abundance
         self._last_step_completed = last_step_completed
+        self.observation_ids = observation_ids
+        self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
+
+        #self.write_cluster_data()
 
 
     def write_cluster_data(self):
@@ -549,18 +585,12 @@ class ClusterObj:
         ret_str = """Cluster: {}
 Observations IDs: {}
 Data Directory: {}
-Combined Mask: {}
-Counts Image: {}
-Back Rescale: {}
 Hydrogen Column Density: {}
 Redshift (z): {}
 Abundance: {}
 Last Step Completed: {}""".format(self.name,
                                   self.observation_ids,
                                   self.data_directory,
-                                  self.combined_mask,
-                                  self.counts_image,
-                                  self.back_rescale,
                                   self.hydrogen_column_density,
                                   self.redshift,
                                   self.abundance,
@@ -572,9 +602,6 @@ Last Step Completed: {}""".format(self.name,
         yield 'name', self.name
         yield 'observation_ids', str(self.observation_ids)
         yield 'data_directory', str(self.data_directory)
-        yield 'combined_mask', str(self.combined_mask)
-        yield 'counts_image', str(self.counts_image)
-        yield 'back_rescale', str(self.back_rescale)
         yield 'hydrogen_column_density', str(self.hydrogen_column_density)
         yield 'redshift', str(self.redshift)
         yield 'abundance', str(self.abundance)
@@ -585,7 +612,10 @@ Last Step Completed: {}""".format(self.name,
     @property
     def directory(self):
         """The directory containing the cluster data"""
-        return ''.join([os.path.normpath("{}/{}/".format(self.data_directory, self.name)), os.path.sep])
+        return io.get_path("{data_dir}/{cluster_name}/".format(
+            data_dir=self.data_directory,
+            cluster_name=self.name
+        ))
 
     @property
     def configuration_filename(self):
@@ -711,6 +741,17 @@ Last Step Completed: {}""".format(self.name,
         return io.get_path("{acb_dir}/{cluster_name}_scale_map_region_index.fits".format(
             acb_dir=self.acb_dir,
             cluster_name=self.name
+        ))
+
+    @property
+    def broad_flux_data(self):
+        return fits.open(self.broad_flux_filename)[0].data
+
+    @property
+    def broad_flux_filename(self):
+        return io.get_path("{cluster_dir}/{name}_broad_flux.img".format(
+            cluster_dir=self.directory,
+            name=self.name
         ))
 
     @property
@@ -1144,8 +1185,6 @@ Last Step Completed: {}""".format(self.name,
             fits.writeto(fits_background_filename, obs.effective_background_time)
 
 
-
-
 def get_observation_ids():
     user_input_good = False
     observations = None
@@ -1186,7 +1225,6 @@ def read_cluster_data(filename):
     cluster.redshift = cluster_dict['redshift']
     cluster.abundance = cluster_dict['abundance']
     cluster.last_step_completed = cluster_dict['last_step_completed']
-    cluster.combined_mask = cluster_dict['combined_mask']
 
     cluster.observations = [Observation(obsid=x, cluster=cluster) for x in cluster.observation_ids]
 

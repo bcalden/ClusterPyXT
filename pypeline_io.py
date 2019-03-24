@@ -311,6 +311,13 @@ def num_lines_in(filename):
         return i+1
 
 
+def check_if_directory_is_empty(directory):
+    if len(os.listdir(directory)) == 0:
+        return True
+    else:
+        return False
+
+
 def get_cluster_info_from_csv(csv_file):
     clusters = []
 
