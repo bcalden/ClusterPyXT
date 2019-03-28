@@ -57,7 +57,7 @@ class Observation:
                     for ccd in self.acis_I_chips:
                         print(ccd)
         except FileNotFoundError:
-            print("Observation {} not yet downloaded".format(self.id))
+            #print("Observation {} not yet downloaded".format(self.id))
             pass
 
     def get_ccds(self):
@@ -111,12 +111,19 @@ class Observation:
         return self.oif_fits[1].header['detnam']
 
     @property
+    def response_file_region_covering_ccds(self):
+        return io.get_path("{analysis_dir}/acisI_region_0.reg".format(
+            analysis_dir=self.analysis_directory
+        ))
+
+    @property
     def analysis_directory(self):
         return io.get_path("{obs_dir}/analysis/".format(obs_dir=self.directory))
 
     @property
     def reprocessing_directory(self):
         return io.get_path("{analysis_dir}/repro/".format(analysis_dir=self.analysis_directory))
+        #return io.get_path("{obs_dir}/repro/".format(obs_dir=self.directory))
 
     @property
     def primary_directory(self):
@@ -337,12 +344,20 @@ class Observation:
             return False
 
     @property
+    def level_1_event_filename(self):
+        return io.get_filename_matching("{analysis_dir}/acis*evt1.fits".format(
+            analysis_dir=self.analysis_directory
+        ))[0]
+
+    @property
     def reprocessed_evt2_filename(self):
-        return io.get_path("{analysis_dir}/evt2.fits".format(analysis_dir=self.analysis_directory))
+        return self.original_reprocessed_evt2_filename
+        #return io.get_path("{analysis_dir}/evt2.fits".format(analysis_dir=self.analysis_directory))
 
     @property
     def reprocessed_bad_pixel_filename(self):
-        return io.get_path("{analysis_dir}/bpix1_new.fits".format(analysis_dir=self.analysis_directory))
+        return self.original_reprocessed_bad_pixel_filename
+        #return io.get_path("{analysis_dir}/bpix1_new.fits".format(analysis_dir=self.analysis_directory))
 
     @property
     def redistribution_matrix_file(self):
@@ -451,6 +466,14 @@ class Observation:
             print('Error: region {reg} not found. exiting'.format(reg=region_number))
             return -1
 
+    def reprocessed_evt2_for_ccd(self, ccd_id):
+        return io.get_path("{evt2_file}[ccd_id={ccd_id}]".format(evt2_file=self.reprocessed_evt2_filename,
+                                                                   ccd_id=ccd_id))
+
+    def acis_ccd(self, ccd_id):
+        return io.get_path("{analysis_dir}/acis_ccd{id}.fits".format(analysis_dir=self.analysis_directory,
+                                                                     id=ccd_id))
+
 
 class ClusterObj:
     """Cluster objects are intended to be pythonic representations of
@@ -542,6 +565,7 @@ class ClusterObj:
         self.write_cluster_data()
         io.make_initial_directories(self)
         print("Initialization complete.")  # Next step is to run the following command: ")
+        print("Please continue running ClusterPyXT on {name}".format(name=self.name))
 
     def get_cluster_info_from_user(self):
         self.name = io.get_user_input("Enter the cluster name: ", "cluster name")
@@ -567,8 +591,7 @@ class ClusterObj:
             self.hydrogen_column_density = "Update me! (on order of 10^22 e.g. 0.052 for 5.2e20)"
             self.redshift = "Update me! (e.g. 0.192)"
             self.abundance = "Update me! (e.g. 0.2)"
-        self._last_step_completed = 1
-
+        self._last_step_completed = 0
 
         return
 
@@ -632,6 +655,10 @@ Last Step Completed: {}""".format(self.name,
     @property
     def last_step_completed(self):
         return self._last_step_completed
+
+    @property
+    def merged_directory(self):
+        return io.get_path('{}/merged_obs_evt2/'.format(self.directory))
 
     @property
     def combined_directory(self):
@@ -1104,6 +1131,13 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def xray_surface_brightness_nosrc_filename(self):
+        return io.get_path("{output_dir}/{name}_xray_surface_brightness_nosrc.fits".format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
+
+    @property
+    def xray_surface_brightness_nosrc_cropped_filename(self):
         return io.get_path("{output_dir}/{name}_xray_surface_brightness_nosrc_cropped.fits".format(
             output_dir=self.output_dir,
             name=self.name

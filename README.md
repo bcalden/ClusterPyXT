@@ -1,6 +1,10 @@
-# ClusterPyXT
+![](docs/graphics/MainGraphic_500x.jpg)
+
 ## Introduction
-ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature maps, pressure maps, surface brightness maps, and density maps. It is open source and under active development. Please feel free to contribute!
+ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature maps, pressure maps, surface brightness maps, and density maps. It is open source and under active development. Please feel free to contribute! See the contribution section below for more details. (Even if you're new to everything!)
+
+## Overview
+![](docs/graphics/pipeline_overview.jpg)
 
 ## Requirements
 This version of `ClusterPyXT` requires `CIAO-4.9` or later (4.11 recommended). The full calibration database (CALDB) is a requirement as well and can be installed with CIAO. 
@@ -48,4 +52,6 @@ After generating the temperature map, there is now enough data to generate the p
 This software is licensed under a 3-clause BSD style license - see the LICENSE.md file
 
 ## Citation
-If you make use of this code in its original form or portions of it, please cite: [arXiv:1903.08215](https://arxiv.org/abs/1903.08215) 
+If you make use of this code in its original form or portions of it, please cite: [arXiv:1903.08215](https://arxiv.org/abs/1903.08215)
+
+## Contributions 

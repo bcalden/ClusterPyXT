@@ -78,6 +78,11 @@ def get_pixel_values(filename):
     return pc.copy_piximgvals(image) # returns a numpy array
 
 
+def remove_directory(directory):
+    print("Deleting {}".format(directory))
+    shutil.rmtree(directory, ignore_errors=True)
+
+
 def make_directory(directory):
     try:
         os.makedirs(get_path(directory))
@@ -154,6 +159,10 @@ def get_path(path):
     return os.path.normpath(path)
 
 
+def file_sizes_match(file1, file2):
+    return file_size(file1) == file_size(file2)
+
+
 def write_contents_to_file(contents, filename, binary=True):
     try:
         file_attributes = 'wb' if binary else 'w'
@@ -179,8 +188,23 @@ def read_contents_of_file(filename):
     return data
 
 
-def copy(src, dst):
-    shutil.copy2(src, dst)
+def move(src, dst):
+    shutil.move(src, dst)
+
+
+def copy(src, dst, replace=False):
+    if replace and file_exists(dst):
+        print("File {} already exists. Deleting it in order to create a new copy.".format(dst))
+        try:
+            delete(dst)
+    #        input("File should be deleted. Press enter to continue.")
+        except IOError:
+            print("Cannot overwrite {}, please manually delete and restart pipeline.".format(dst))
+    new_filename = shutil.copy(src, dst)
+
+    # print("File should be copied to {}".format(new_filename))
+    # print("New file size: {}".format(file_size(new_filename)))
+    # input("Press enter to continue.")
 
 
 def copytree(src, dst):  # , symlinks=False, ignore=None):
@@ -336,6 +360,15 @@ def get_cluster_info_from_csv(csv_file):
                              'redshift': z})
     return clusters
 
+
 def make_initial_data_dir(directory):
     if not os.path.isdir(directory):
         make_directory(directory)
+
+
+def print_red(string):
+    print("{red}{string}{reset}".format(
+        red=Colors.RED,
+        string=string,
+        reset=Colors.RESET
+    ))
