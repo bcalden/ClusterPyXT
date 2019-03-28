@@ -149,13 +149,21 @@ def create_scale_map_region_index(cluster: cluster.ClusterObj):
 
 def _update_completed_things(current, max_num, thing):
     io.move_cursor_left(1000)
-    io.write("{current} out of {max} {thing} complete.".format(
+    io.write("{current} out of {max} {thing} complete.                                                         ".format(
         current=current,
         max=max_num,
         thing=thing
     ))
     io.flush()
 
+def _source_free_region(counter, current, max_num):
+    io.move_cursor_left(1000)
+    io.write("Encountered a source-free region -- recalculating...{counter} - {current}/{max} complete".format(
+        counter=counter,
+        current=current,
+        max=max_num
+    ))
+    io.flush()
 
 def create_scale_map(cluster):
     from astropy.io import fits
@@ -226,7 +234,7 @@ def create_scale_map(cluster):
     num_pix = nx*ny
 
     ci=0
-
+    counter=0
     start_time = time.time()
 
     # output_queue = mp.Queue()
@@ -252,7 +260,8 @@ def create_scale_map(cluster):
                     cts_map_total = np.sum(cts_image[indeces])
 
                     if cts_map_total == 0:
-                        print("Encountered a source-free region -- recalculating...")
+                        counter+=1
+                        _source_free_region(counter, ci*cj, num_pix)
                         sn_val = 0
                         hilo = -1
                     else:

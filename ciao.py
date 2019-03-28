@@ -1,3 +1,5 @@
+from enum import IntEnum
+from errors import ClusterPyError
 import pypeline_io as io
 import os
 import config
@@ -5,6 +7,7 @@ import subprocess
 import numpy as np
 import acb
 import cluster
+import sys
 import data_operations as do
 
 try:
@@ -14,8 +17,18 @@ try:
     lw.initialize_logger("download", verbose=1)
     from ciao_contrib import runtool as rt
 except ImportError:
-    print("Failed to import CIAO python scripts. ")
-    raise
+    print("Failed to import CIAO python scripts. Is CIAO running?")
+    sys.exit(1)
+
+
+class Stage(IntEnum):
+    zero = 0
+    one = 1
+    two = 2
+    three = 3
+    four = 4
+    five = 5
+    tmap = 6
 
 
 def download_data(cluster):
@@ -52,31 +65,29 @@ def prepare_to_merge_observations_from(cluster_obj):
         io.copytree(src=observation.secondary_directory, dst=observation.analysis_directory)
 
     return
-    #
-    # for observation in cluster_obj.observation_ids:
-    #     observation_dir = "{}/{}".format(cluster_obj.directory, observation)
-    #     print("\nObservation directory: {}".format(observation_dir))
-    #     analysis_dir = "{}/analysis/".format(observation_dir)
-    #     io.make_directory("{}/analysis/repro".format(observation_dir))
-    #     for obs_type in ['primary', 'secondary']:
-    #         dir_to_copy = "{}/{}".format(observation_dir, obs_type)
-    #         print(dir_to_copy)
-    #         io.copytree(dir_to_copy, analysis_dir)
-    # return
 
 
 def unzip_data_from(cluster_obj):
     print("Unzipping data for {}.".format(cluster_obj.name))
-    for observation in cluster_obj.observation_list:
-        print("Unzipping {}/{}.".format(cluster_obj.name, observation))
-        current_analysis_dir = "{}/{}/analysis/".format(cluster_obj.directory, observation)
-        io.set_working_directory(current_analysis_dir)
+    for observation in cluster_obj.observations:
+        print("Unzipping {}.".format(observation.analysis_directory))
+        io.set_working_directory(observation.analysis_directory)
         all_files_in_directory = os.listdir()
 
         files_to_unzip = [gz_file for gz_file in all_files_in_directory if gz_file.endswith('.gz')]
         for gz_file in files_to_unzip:
-            print("Unzipping {}/{}/{}.".format(cluster_obj.name, observation, gz_file))
-            io.gz_unzip(gz_file)
+            try:
+                io.gz_unzip(gz_file)
+            except:
+                print("Problem unzipping {}".format(gz_file))
+                print("Data likely corrupted during download.")
+                print("Try deleting {} and starting {} over.".format(cluster_obj.directory, cluster_obj.name))
+                sys.exit(1)
+            try:
+                io.delete(gz_file)
+            except:
+                print("Problem deleting {}. Skipping".format(gz_file))
+                pass
     return
 
 
@@ -155,7 +166,7 @@ def ciao_back(cluster, overwrite=False):
             try:
                 if io.file_exists(local_background_path) and overwrite:
                     io.delete(local_background_path)
-                io.copy(path_to_background, local_background_path)
+                io.copy(path_to_background, local_background_path, replace=True)
             except OSError:
                 print("Problem copying background file {}. Do you have the right permissions and a full CALDB?".format(
                     path_to_background))
@@ -222,12 +233,12 @@ def ciao_back(cluster, overwrite=False):
 
 
 def reprocess_cluster(cluster):
-    print("Reprocessing {}".format(cluster.name))
+    print("Reprocessing {}. This may take a a little while (potentially 10s of minutes)".format(cluster.name))
+
     for observation in cluster.observations:
         print("Reprocessing {}/{}".format(cluster.name, observation.id))
-        chandra_repro(indir=observation.directory, outdir=observation.reprocessing_directory)
-
-        copy_event_files(observation.reprocessing_directory, observation.analysis_directory)
+        result = chandra_repro(observation)
+        print(result)
     return
 
 
@@ -255,53 +266,34 @@ def ciao_merge_background(cluster):
         ciao_hiE_sources(observation)
 
 
-def chandra_repro(indir="./", outdir="./repro", set_ardlib=False, clobber=True):
-    indir = io.get_path(indir)
-    outdir = io.get_path(outdir)
-
-    kwargs = {'indir': indir,
-              'outdir': outdir,
-              'set_ardlib': set_ardlib,
-              'clobber': clobber}
+def chandra_repro(observation: cluster.Observation):
 
     rt.chandra_repro.punlearn()
+    os.chdir(observation.analysis_directory)
+    output = rt.chandra_repro(indir=observation.directory,
+                              outdir=observation.reprocessing_directory,
+                              set_ardlib=False,
+                              clobber=True,
+                              verbose=1)
 
-    rt.chandra_repro(**kwargs)
-
-    return
-
-
-def copy_event_files(source_dir, destination_dir):
-    os.chdir(source_dir)
-    evt2_filename = io.get_filename_matching("{source_dir}/acis*repro_evt2.fits".format(source_dir=source_dir))
-    if isinstance(evt2_filename, list):
-        evt2_filename = evt2_filename[-1]
-    bpix1_filename = io.get_filename_matching("{source_dir}/*repro_bpix1.fits".format(source_dir=source_dir))
-    if isinstance(bpix1_filename, list):
-        bpix1_filename = bpix1_filename[-1]
-
-    io.copy(evt2_filename, io.get_path("{}/evt2.fits".format(destination_dir)))
-    io.copy(bpix1_filename, io.get_path("{}/bpix1_new.fits".format(destination_dir)))
-
-    print("Copied level 2 event files")
-    return None
+    return output
 
 
 def ccd_sort(cluster):
     print("Running ccd_sort on {}.".format(cluster.name))
     for observation in cluster.observations:
         print("Working on {}/{}".format(cluster.name, observation.id))
-        analysis_path = observation.analysis_directory
-        os.chdir(analysis_path)
-        evt1_filename = io.get_path("{}/{}".format(analysis_path,
-                                                            io.get_filename_matching("acis*evt1.fits")[0]))
-        evt2_filename = io.get_path("{}/{}".format(analysis_path,
-                                                            io.get_filename_matching("evt2.fits")[0]))
+        #analysis_path = observation.analysis_directory
+        #os.chdir(analysis_path)
+        evt1_filename = observation.level_1_event_filename
+        evt2_filename = observation.reprocessed_evt2_filename
         detname = rt.dmkeypar(infile=evt1_filename, keyword="DETNAM", echo=True)
         print("evt1 : {}\nevt2 : {}\ndetname : {}".format(evt1_filename,
                                                           evt2_filename,
                                                           detname))
-        assert not isinstance(detname, type(None)), "detname returned nothing!"
+        assert not isinstance(detname, type(None)), "detnam keyword not in level 1 event file: {}".format(
+            observation.level_1_event_filename
+        )
         detnums = [int(x) for x in detname.split('-')[-1]]
 
         for acis_id in detnums:
@@ -309,11 +301,26 @@ def ccd_sort(cluster):
                 cluster=cluster.name,
                 observation=observation.id,
                 acis_id=acis_id))
-            rt.dmcopy(infile="{evt2_file}[ccd_id={acis_id}]".format(evt2_file=evt2_filename,
-                                                                    acis_id=acis_id),
-                      outfile="acis_ccd{acis_id}.fits".format(acis_id=acis_id),
-                      clobber=True)
+            try:
+                rt.dmcopy(infile=observation.reprocessed_evt2_for_ccd(acis_id),
+                          outfile=observation.acis_ccd(acis_id),
+                          clobber=True)
+            except OSError as oserr:
+                print("Error generating event files for each CCD.")
+                print("Observation: {}\t CCD: {}".format(observation.id, acis_id))
+                print("File: {}".format(observation.reprocessed_evt2_for_ccd(acis_id)))
+                if not io.file_sizes_match(observation.reprocessed_evt2_filename, observation.original_reprocessed_evt2_filename):
+                    print("File sizes don't match for  {} and {}.".format(observation.reprocessed_evt2_filename,
+                                                                          observation.original_reprocessed_evt2_filename))
+                    print("These should be the same file. Try manually copying {og} to {new} and retrying.".format(
+                        og=observation.original_reprocessed_evt2_filename,
+                        new=observation.reprocessed_evt2_filename
+                    ))
+                print("Retry last pipeline step. If problem persists, please post an issue to GitHub.")
+                raise
+                #sys.exit(1)
 
+        os.chdir(observation.analysis_directory)
         acisI_list = io.get_filename_matching("acis_ccd[0-3].fits")
         for i in range(len(acisI_list)):
             acisI_list[i] = io.get_path("{obs_analysis_dir}/{file}".format(obs_analysis_dir=observation.analysis_directory,
@@ -347,20 +354,19 @@ def merge_data_and_backgrounds(cluster, acis_list):
 def actually_merge_observations_from(cluster):
     print("Merging observations from {}.".format(cluster.name))
 
-    merged_directory = io.get_path('{}/merged_obs_evt2/'.format(cluster.directory))
+    merged_directory = cluster.merged_directory
 
     io.make_directory(merged_directory)
 
     os.chdir(merged_directory)
     merged_observations = []
 
-    for observation in cluster.observation_list:
-        evt2_file = "{}/{}/analysis/evt2.fits".format(cluster.directory, observation)
-        merged_observations.append(evt2_file)
+    for observation in cluster.observations:
+        merged_observations.append(observation.reprocessed_evt2_filename)
 
     merged_lis = "{}/merged_obs.lis".format(merged_directory)
     io.write_contents_to_file("\n".join(merged_observations), merged_lis, binary=False)
-    outroot = io.get_path("{}/{}".format(cluster.directory,cluster.name))
+    outroot = io.get_path("{}/{}".format(cluster.directory, cluster.name))
 
     infile = "@{infile}[ccd_id=0:3]".format(infile=merged_lis) # for ACIS-I
     # infile = "@{infile}".format(infile=merged_lis) # for ACIS-I & ACIS-S
@@ -403,6 +409,7 @@ def ciao_hiE_sources(observation):
 def merge_observations(cluster):
     prepare_to_merge_observations_from(cluster)
     unzip_data_from(cluster)
+    #reprocess_cluster_test(cluster)
     reprocess_cluster(cluster)
     ccd_sort(cluster)
     ciao_back(cluster)
@@ -519,7 +526,10 @@ def generate_light_curve(observation):
 
 def lightcurves_with_exclusion(cluster):
     for observation in cluster.observations:
-
+        print("Processing {name}/{obsid}".format(
+            name=cluster.name,
+            obsid=observation.id
+        ))
 
         # data_nosrc_hiEfilter = "{}/acisI_nosrc_fullE.fits".format(obs_analysis_dir)
 
@@ -595,23 +605,23 @@ def lightcurves_with_exclusion(cluster):
 
 def sources_and_light_curves(cluster):
     for observation in cluster.observations:
+        print("Removing sources for {obsid}".format(obsid=observation.id))
         remove_sources(observation)
+        print("Generating light curves for {obsid}".format(obsid=observation.id))
         generate_light_curve(observation)
 
 
-def create_global_response_file_for(cluster, obsid, region_file):
-    observation = cluster.observation(obsid)
+def create_global_response_file_for(observation: cluster.Observation):
+
     #min_counts = 525
 
     obs_analysis_dir = observation.analysis_directory
-    global_response_dir = "{}/globalresponse/".format(obs_analysis_dir)
+    global_response_dir = observation.global_response_directory
     io.make_directory(global_response_dir)
 
+    bad_pixel_file = observation.reprocessed_bad_pixel_filename
     clean = observation.clean
     back = observation.back
-
-    pbk0 = io.get_filename_matching("{}/acis*pbk0*.fits".format(obs_analysis_dir))[0]
-    bad_pixel_file = io.get_filename_matching("{}/bpix1_new.fits".format(obs_analysis_dir))[0]
 
     rt.ardlib.punlearn()
 
@@ -619,9 +629,9 @@ def create_global_response_file_for(cluster, obsid, region_file):
 
     mask_file = io.get_filename_matching("{}/*msk1.fits".format(obs_analysis_dir))
 
-    make_pcad_lis(cluster, obsid)
+    make_pcad_lis(observation.cluster, observation.id)
 
-    infile = "{}[sky=region({})]".format(clean, region_file)
+    infile = "{}[sky=region({})]".format(clean, observation.response_file_region_covering_ccds)
     outroot = "{}/acisI_region_0".format(global_response_dir)
     weight = True
     correct_psf = False
@@ -637,7 +647,7 @@ def create_global_response_file_for(cluster, obsid, region_file):
                    asp=pcad, combine=combine, mskfile=mask_file, bkgfile=bkg_file, bkgresp=bkg_resp,
                    badpixfile=bad_pixel_file, grouptype=group_type, binspec=binspec, clobber=clobber)
 
-    infile = "{}[sky=region({})][bin pi]".format(back, region_file)
+    infile = "{}[sky=region({})][bin pi]".format(back, observation.response_file_region_covering_ccds)
     outfile = "{}/acisI_back_region_0.pi".format(global_response_dir)
     clobber = True
 
@@ -653,8 +663,6 @@ def create_global_response_file_for(cluster, obsid, region_file):
     value = outfile
 
     rt.dmhedit(infile=infile, filelist=filelist, operation=operation, key=key, value=value)
-
-    observation = cluster.observation(obsid)
 
     aux_response_file = '{global_response_directory}/acisI_region_0.arf'.format(
         global_response_directory=observation.global_response_directory)
@@ -679,11 +687,9 @@ def make_pcad_lis(cluster, obsid):
 
 
 def make_response_files(cluster):
-    for obsid in cluster.observation_ids:
-        print("Making response files for observation {}".format(obsid))
-        obs_analysis_dir = cluster.obs_analysis_directory(obsid)
-        region_file = io.get_path("{}/acisI_region_0.reg".format(obs_analysis_dir))
-
+    for observation in cluster.observations:
+        region_file = observation.response_file_region_covering_ccds
+        print("Checking for response region file (region file covering at least a piece of all ACIS-I CCDs) for {}".format(observation.id))
         if (not io.file_exists(region_file)) or (io.file_size(region_file) == 0):
             print("Region file {} does not exist.".format(region_file))
             print("When DS9 opens, draw a small circle that covers a piece of each ACIS-I chip (~20 pixels) and save it as:\n" \
@@ -691,10 +697,10 @@ def make_response_files(cluster):
             print("Opening SAO DS9")
             io.write_contents_to_file("", region_file, False)
             ds9_arguments = "ds9 -regions system physical -regions shape circle -regions format ciao -zoom 0.5 " \
-                            "-bin factor 4 {}/acisI_clean.fits".format(obs_analysis_dir)
+                            "-bin factor 4 {clean_obs}".format(clean_obs=observation.clean)
             subprocess.run([ds9_arguments], shell=True)
         print('Creating global response file.')
-        create_global_response_file_for(cluster, obsid, region_file)
+        create_global_response_file_for(observation)
 
 
 def make_mask_file(observation):
@@ -813,8 +819,8 @@ def run_ds9_for_master_crop(cluster):
     subprocess.run([ds9_arguments], shell=True)
 
 
-def runpipe5(cluster):
-    print("runpipe5")
+def stage_4(cluster: cluster.ClusterObj):
+
     from astropy.io import fits
     # This portion of the pypeline 
     combined_dir = cluster.combined_directory
@@ -867,6 +873,7 @@ def runpipe5(cluster):
 
     create_combined_images(cluster)
     make_nosrc_cropped_xray_sb(cluster)
+
 
 def create_combined_images(cluster):
     from astropy.io import fits
@@ -1056,75 +1063,223 @@ def get_exposure(filename):
     return get_keyword_value(filename, "EXPOSURE")
 
 
-def start_from_last(cluster):
-    complete_string = ['',
-                       'Data downloaded. Now time to merge the observations',
-                       'Merging complete!']
-
-    # if cluster_filename is None:
-    #     cluster_obj.initialize_cluster()
-    #     kwargs = {'current_cluster_name': cluster_obj.name,
-    #               'cluster_config_file': cluster_obj.configuration_filename}
-    #     config.update_system_configuration(**kwargs)
-    # else:
-    #     cluster_obj = cluster.read_cluster_data(cluster_filename)
-
-    continue_running = True
-    while continue_running:
-        pypeline_progress_index = int(cluster.last_step_completed)
-        function_steps = [None,
-                          download_data, # runpipe1 / stage 1
-                          merge_observations, #runpipe1 / stage 1
-                          sources_and_light_curves, #runpipe2 / stage 2
-                          lightcurves_with_exclusion, #runpipe3 / stage 2
-                          make_response_files, #runpipe4 / stage 3
-                          runpipe5, #runpipe5
-                          acb.fitting_preparation] #runpipe acb
-
-        if pypeline_progress_index < len(function_steps):
-            success = function_steps[pypeline_progress_index](cluster)
-
-            if pypeline_progress_index == 1:
-                if success:
-                    print(complete_string[pypeline_progress_index])
-                    cluster.last_step_completed = 2
-                else:
-                    print("Problem downloading the data. Try again")
-                    continue_running = False
-            elif pypeline_progress_index == 2:
-                cluster.last_step_completed = 3
-                print("Now time to select the sources. The broad_flux.img file in the main observation directory"
-                      "is the file you need to create the source region file from. You can do this by opening "
-                      "that file in SAO DS9 and selecting them by hand, or using an automated tool. Save the sources"
-                      "file in the main observation directory as sources.reg and then rerun the pypeline.")
+def run_stage_1(cluster):
+    download_data(cluster)
+    merge_observations(cluster)
 
 
-                #start DS9, load the broad flux FITS image, and a sources.reg file for the user to begin
-                continue_running = False
-            elif pypeline_progress_index == 3:
-                print("Sources removed.")
-                continue_running = False
-                print("draw regions around sources to exclude when creating the lightcurve "
-                      "and save as exclude.reg in the clusters main directory.")
-                cluster.last_step_completed = 4
-            elif pypeline_progress_index == 4:
-                print("Lightcurve creation complete")
-                continue_running = False
-                cluster.last_step_completed = 5
-            elif pypeline_progress_index == 5:
-                cluster.last_step_completed = 6
-                continue_running = True
-            elif pypeline_progress_index == 6:
-                cluster.last_step_completed = 7
-                continue_running = False
-            elif pypeline_progress_index == 7:
-                cluster.last_step_completed = 8
-                continue_running = False
+def finish_stage_1(cluster: cluster.ClusterObj):
+    print_stage_2_prep(cluster)
 
-        else:
-            print("That functionality is not yet complete. Help by contributing on GitHub!")
-            continue_running = False
+
+def print_stage_2_prep(cluster: cluster.ClusterObj):
+    prep_msg = """Data downloaded and the observations are merged into a surface brightness map {sb_map_filename}. 
+    Now it is time to filter out point sources and high energy flares. To do so, first open the surface brightness
+    map and create regions around sources you want excluded from the data analysis. These are typically foreground
+    point sources one does not want to consider when analyzing the cluster. Save these regions as a DS9 region file
+    named {sources_file}. 
+
+    Additionally, you need to create a region file containing any regions you wanted excluded from the deflaring process.
+    This would include areas such as the peak of cluster emission as these regions may contain high energy events we want
+    to consider in this analysis. Save this region file as {exclude_file}. 
+
+    After both files are saved, you can continue ClusterPyXT on {cluster_name}""".format(
+        sb_map_filename=cluster.xray_surface_brightness_filename,
+        sources_file=cluster.sources_file,
+        exclude_file=cluster.exclude_file,
+        cluster_name=cluster.name
+    )
+
+    print(prep_msg)
+
+
+def check_for_required_stage_2_files(cluster: cluster.ClusterObj):
+    if io.file_exists(cluster.sources_file) and io.file_exists(cluster.exclude_file):
+        return True
+    else:
+        io.print_red("Error: Missing {sources} and/or {exclude}".format(
+            sources=cluster.sources_file,
+            exclude=cluster.exclude_file
+        ))
+        print_stage_2_prep(cluster)
+
+        sys.exit(ClusterPyError.sources_or_exclude_not_found)
+
+
+def run_stage_2(cluster):
+    print("Starting Stage 2: {}".format(cluster.name))
+    check_for_required_stage_2_files(cluster)
+    sources_and_light_curves(cluster)
+    make_nosrc_xray_sb(cluster)
+    lightcurves_with_exclusion(cluster)
+
     return
+
+
+def finish_stage_2(cluster: cluster.ClusterObj):
+    finish_str = """Stage 2 complete -  Point sources removed -> {xray_sb_nosrc}.
+                                        High energy events filtered.""".format(
+        xray_sb_nosrc=cluster.xray_surface_brightness_nosrc_filename
+    )
+
+    print(finish_str)
+    print_stage_3_prep(cluster)
+
+
+def print_stage_3_prep(cluster: cluster.ClusterObj):
+    observation = cluster.observations[0]
+    prep_str = """Next is stage 3. This stage extracts the RMF and ARF files. Before continuing the pipeline
+    on {cluster_name}, you need to create a region file for each observation. Each observation
+    will need its own region file named acisI_region_0.reg and saved in the respective analysis
+    directory (e.g. {region_file}).
+    
+    To create this file, open the respective acisI_clean.fits file (e.g. {acisI_clean}) and draw
+    a small circle region containing some of each of the ACIS-I CCD's. This region does not need
+    to contain ALL of the chips, just a piece of each. It can be ~20 pixels (bigger circle=longer
+    runtime). 
+    
+    After the region files for each observation are created, continue running ClusterPyXT on {cluster_name}""".format(
+        xray_sb_nosrc=cluster.xray_surface_brightness_nosrc_filename,
+        cluster_name=cluster.name,
+        region_file=observation.response_file_region_covering_ccds,
+        acisI_clean=observation.clean
+    )
+
+    print(prep_str)
+
+
+def run_stage_3(cluster: cluster.ClusterObj):
+    make_response_files(cluster)
+
+
+def finish_stage_3(cluster: cluster.ClusterObj):
+    finish_str = """"""
+
+    print(finish_str)
+    print_stage_4_prep(cluster)
+
+
+def print_stage_4_prep(cluster: cluster.ClusterObj):
+    prep_str = """Now you need to create a region file enclosing the region you would like to crop
+    the final analysis to. To do so, open the surface brightness file {xray_sb_file}
+    and create a box region containing all parts of the image you want included in the analysis. 
+    
+    Save this file as: {master_crop}
+    
+    After this region file is created, continue running ClusterPyXT on {cluster_name}.
+    
+    Note: Due to processing complexities, during this stage you may encounter an error
+     where two observations have slightly different dimensions (usually ~1) and the pipeline cannot
+     combine them. This is due to the region splitting pixels and in some observations that pixel may
+     be counted where in others it is not. If this happens, draw a new crop region, save it, and re-run.""".format(
+        xray_sb_file=cluster.xray_surface_brightness_nosrc_filename,
+        master_crop=cluster.master_crop_file,
+        cluster_name=cluster.name
+    )
+
+    print(prep_str)
+
+
+def run_stage_4(cluster: cluster.ClusterObj):
+    stage_4(cluster)
+
+
+def finish_stage_4(cluster: cluster.ClusterObj):
+    finish_str = """Data filtered and cropped."""
+    print(finish_str)
+
+    print_stage_5_prep(cluster)
+
+
+def print_stage_5_prep(cluster: cluster.ClusterObj):
+    prep_str = """You are now ready for Stage 5. This stage only requires all previous stages to be completed. 
+    Stage 5 calculates the adaptive circular bins, generates the scale map, and calculates exposure corrections. 
+    It can take a long time (~10s of hours). 
+
+    After stage 5 is complete, you are ready for spectral fitting.
+
+    Please continue running ClusterPyXT on {cluster_name}.""".format(cluster_name=cluster.name)
+
+    print(prep_str)
+
+
+def run_stage_5(cluster: cluster.ClusterObj):
+    acb.fitting_preparation(cluster)
+
+
+def finish_stage_5(cluster: cluster.ClusterObj):
+    finish_str = """Scale map created, adaptive circular bins generated, and various other files generated needed 
+    to correct exposures."""
+
+    print(finish_str)
+    print_stage_tmap_prep()
+
+
+def print_stage_tmap_prep(cluster: cluster.ClusterObj):
+    prep_str = """Now ready for spectral fitting. Please see README.md either in the main ClusterPyXT directory, or on github, for
+    further details on how to run this, as well as subsequent steps."""
+
+    print(prep_str)
+
+
+def run_stage_tmap(cluster: cluster.ClusterObj):
+    pass
+
+
+def finish_stage_tmap(cluster: cluster.ClusterObj):
+    pass
+
+
+def start_from_last(cluster: cluster.ClusterObj):
+    print("Continuing {}".format(cluster.name))
+
+    last_stage_completed = int(cluster.last_step_completed)
+
+    print("Last step completed: {}".format(last_stage_completed))
+
+    if last_stage_completed == Stage.zero:
+        run_stage_1(cluster)
+        cluster.last_step_completed = Stage.one.value
+        finish_stage_1(cluster)
+        return
+
+    elif last_stage_completed == Stage.one:
+        run_stage_2(cluster)
+        cluster.last_step_completed = Stage.two.value
+        finish_stage_2(cluster)
+        return
+
+    elif last_stage_completed == Stage.two:
+        run_stage_3(cluster)
+        cluster.last_step_completed = Stage.three.value
+        finish_stage_3(cluster)
+        return
+
+    elif last_stage_completed == Stage.three:
+        run_stage_4(cluster)
+        cluster.last_step_completed = Stage.four.value
+        finish_stage_4(cluster)
+        return
+
+    elif last_stage_completed == Stage.four:
+        run_stage_5(cluster)
+        cluster.last_step_completed = Stage.five.value
+        finish_stage_5(cluster)
+        return
+
+    elif last_stage_completed == Stage.five:
+        print_stage_tmap_prep()
+        ### To be implemented
+        # run_stage_tmap(cluster)
+        # cluster.last_step_completed = Stage.tmap.value
+        # finish_stage_tmap(cluster)
+        return
+
+    else:
+        print("Error loading configuration file.")
+
+    return
+
 
 def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
     clstr = cluster.ClusterObj(name=name, observation_ids=obsids, abundance=abundance,
@@ -1133,13 +1288,7 @@ def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
     print('Making initial cluster directory: {}'.format(clstr.directory))
     io.make_directory(clstr.directory)
     io.make_initial_directories(clstr)
-    clstr.last_step_completed = 1
-    print("Downloading cluster data.")
-    download_data(clstr)
-    clstr.last_step_completed = 2
-    print("Merging observations.")
-    merge_observations(clstr)
-    clstr.last_step_completed = 3
+    #run_stage_1(clstr)
 
 
 def automated_cluster_init(batch_file):
@@ -1158,11 +1307,6 @@ def automated_cluster_init(batch_file):
         io.make_directory(cluster_obj.directory)
         cluster_obj.write_cluster_data()
         io.make_initial_directories(cluster_obj)
-        cluster_obj.last_step_completed = 1
-        download_data(cluster_obj)
-        cluster_obj.last_step_completed = 2
-        merge_observations(cluster_obj)
-        cluster_obj.last_step_completed = 3
 
 
 def copy_image_excluding_region(image_file, sources_file, output_file, overwrite=False):
@@ -1177,6 +1321,7 @@ def copy_image_excluding_region(image_file, sources_file, output_file, overwrite
 def copy_image(infile, outfile, overwrite=False):
     rt.dmcopy.punlearn()
     rt.dmcopy(infile=infile, outfile=outfile, clobber=overwrite)
+
 
 def copy_image_cropping_region(image_file, crop_region, output_file, overwrite=False):
     infile = "{file}[sky=region({crop_region})]".format(
@@ -1195,14 +1340,22 @@ def make_cropped_xray_sb_image(clstr: cluster.ClusterObj):
     outfile = clstr.xray_surface_brightness_cropped_filename
     copy_image(infile, outfile, overwrite=True)
 
-def remove_sources_from_xray_surface_brightness(clstr: cluster.ClusterObj):
-    copy_image_excluding_region(clstr.xray_surface_brightness_cropped_filename,
-                                clstr.sources_file,
-                                clstr.xray_surface_brightness_nosrc_filename,
+
+def remove_sources_from_cropped_xray_surface_brightness(clstr: cluster.ClusterObj):
+    copy_image_excluding_region(image_file=clstr.xray_surface_brightness_cropped_filename,
+                                sources_file=clstr.sources_file,
+                                output_file=clstr.xray_surface_brightness_nosrc_cropped_filename,
+                                overwrite=True)
+
+
+def make_nosrc_xray_sb(clstr: cluster.ClusterObj):
+    copy_image_excluding_region(image_file=clstr.xray_surface_brightness_filename,
+                                sources_file=clstr.sources_file,
+                                output_file=clstr.xray_surface_brightness_nosrc_filename,
                                 overwrite=True)
 
 
 def make_nosrc_cropped_xray_sb(clstr: cluster.ClusterObj):
     make_cropped_xray_sb_image(clstr)
-    remove_sources_from_xray_surface_brightness(clstr)
+    remove_sources_from_cropped_xray_surface_brightness(clstr)
 
