@@ -149,7 +149,7 @@ def create_scale_map_region_index(cluster: cluster.ClusterObj):
 
 def _update_completed_things(current, max_num, thing):
     io.move_cursor_left(1000)
-    io.write("{current} out of {max} {thing} complete.".format(
+    io.write("{current} out of {max} {thing} complete.                                                         ".format(
         current=current,
         max=max_num,
         thing=thing

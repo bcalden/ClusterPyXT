@@ -1131,9 +1131,9 @@ def print_stage_3_prep(cluster: cluster.ClusterObj):
     prep_str = """Next is stage 3. This stage extracts the RMF and ARF files. Before continuing the pipeline
     on {cluster_name}, you need to create a region file for each observation. Each observation
     will need its own region file named acisI_region_0.reg and saved in the respective analysis
-    directory (e.g. {region_file}.
+    directory (e.g. {region_file}).
     
-    To create this file, open the respective acisI_clean.fits file (e.g. {acisI_clean} and draw
+    To create this file, open the respective acisI_clean.fits file (e.g. {acisI_clean}) and draw
     a small circle region containing some of each of the ACIS-I CCD's. This region does not need
     to contain ALL of the chips, just a piece of each. It can be ~20 pixels (bigger circle=longer
     runtime). 
@@ -1185,7 +1185,22 @@ def run_stage_4(cluster: cluster.ClusterObj):
 
 
 def finish_stage_4(cluster: cluster.ClusterObj):
-    pass
+    finish_str = """Data filtered and cropped."""
+    print(finish_str)
+
+    print_stage_5_prep(cluster)
+
+
+def print_stage_5_prep(cluster: cluster.ClusterObj):
+    prep_str = """You are now ready for Stage 5. This stage only requires all previous stages to be completed. 
+    Stage 5 calculates the adaptive circular bins, generates the scale map, and calculates exposure corrections. 
+    It can take a long time (~10s of hours). 
+
+    After stage 5 is complete, you are ready for spectral fitting.
+
+    Please continue running ClusterPyXT on {cluster_name}.""".format(cluster_name=cluster.name)
+
+    print(prep_str)
 
 
 def run_stage_5(cluster: cluster.ClusterObj):
@@ -1193,7 +1208,18 @@ def run_stage_5(cluster: cluster.ClusterObj):
 
 
 def finish_stage_5(cluster: cluster.ClusterObj):
-    pass
+    finish_str = """Scale map created, adaptive circular bins generated, and various other files generated needed 
+    to correct exposures."""
+
+    print(finish_str)
+    print_stage_tmap_prep()
+
+
+def print_stage_tmap_prep(cluster: cluster.ClusterObj):
+    prep_str = """Now ready for spectral fitting. Please see README.md either in the main ClusterPyXT directory, or on github, for
+    further details on how to run this, as well as subsequent steps."""
+
+    print(prep_str)
 
 
 def run_stage_tmap(cluster: cluster.ClusterObj):
@@ -1242,9 +1268,11 @@ def start_from_last(cluster: cluster.ClusterObj):
         return
 
     elif last_stage_completed == Stage.five:
-        run_stage_tmap(cluster)
-        cluster.last_step_completed = Stage.tmap.value
-        finish_stage_tmap(cluster)
+        print_stage_tmap_prep()
+        ### To be implemented
+        # run_stage_tmap(cluster)
+        # cluster.last_step_completed = Stage.tmap.value
+        # finish_stage_tmap(cluster)
         return
 
     else:
