@@ -526,7 +526,10 @@ def generate_light_curve(observation):
 
 def lightcurves_with_exclusion(cluster):
     for observation in cluster.observations:
-
+        print("Processing {name}/{obsid}".format(
+            name=cluster.name,
+            obsid=observation.id
+        ))
 
         # data_nosrc_hiEfilter = "{}/acisI_nosrc_fullE.fits".format(obs_analysis_dir)
 

@@ -1,4 +1,4 @@
-![](docs/graphics/MainGraphic_500x.jpg)
+![](docs/graphics/MainGraphic_700x.jpg)
 
 ## Introduction
 ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature maps, pressure maps, surface brightness maps, and density maps. It is open source and under active development. Please feel free to contribute! See the contribution section below for more details. (Even if you're new to everything!)
@@ -54,4 +54,5 @@ This software is licensed under a 3-clause BSD style license - see the LICENSE.m
 ## Citation
 If you make use of this code in its original form or portions of it, please cite: [arXiv:1903.08215](https://arxiv.org/abs/1903.08215)
 
-## Contributions 
+## Contributions
+All levels of contributions are welcome. From text documentation to parallel processing algorithms, your input and help is desired. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for more information. 
