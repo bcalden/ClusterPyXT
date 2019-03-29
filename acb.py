@@ -170,7 +170,7 @@ def _update_effective_exposure_time(current_region, number_regions, time_elapsed
     io.write("{current_region} of {num_regions} complete. Time elapsed: {time}".format(
         current_region=current_region,
         num_regions=number_regions,
-        time=time
+        time=time_elapsed
     ))
     io.flush()
 
