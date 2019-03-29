@@ -148,7 +148,7 @@ def create_scale_map_region_index(cluster: cluster.ClusterObj):
 
 
 def _update_completed_things(current, max_num, thing):
-    io.move_cursor_left(1000)
+    io.clear_line()
     io.write("{current} out of {max} {thing} complete.                                                         ".format(
         current=current,
         max=max_num,
@@ -157,11 +157,20 @@ def _update_completed_things(current, max_num, thing):
     io.flush()
 
 def _source_free_region(counter, current, max_num):
-    io.move_cursor_left(1000)
+    io.clear_line()
     io.write("Encountered a source-free region -- recalculating...{counter} - {current}/{max} complete".format(
         counter=counter,
         current=current,
         max=max_num
+    ))
+    io.flush()
+
+def _update_effective_exposure_time(current_region, number_regions, time_elapsed):
+    io.clear_line()
+    io.write("{current_region} of {num_regions} complete. Time elapsed: {time}".format(
+        current_region=current_region,
+        num_regions=number_regions,
+        time=time
     ))
     io.flush()
 
@@ -446,75 +455,17 @@ def calculate_effective_times(cluster: cluster.ClusterObj):
 
                     counter += 1
                     if counter % 1000 == 0 or counter == number_of_regions or counter == 1:
-                        _update_completed_things(counter, number_of_regions, "regions")
+
                         time_elapsed = time.strftime("%H hours %M minutes %S seconds.",
                                                     time.gmtime(time.time()-start_time))
-                        print("Time elapsed: {}".format(time_elapsed))
+                        _update_effective_exposure_time(current_region=counter,
+                                                        number_regions=number_of_regions,
+                                                        time_elapsed=time_elapsed
+                                                        )
 
         observation.effective_data_time = effective_data_times
         observation.effective_background_time = effective_background_times
 
-
-        # for cj in range(bpix_y, epix_y):
-        #     for ci in range(bpix_x, epix_x):
-        #         if mask[ci, cj] == 1:
-        #             edt[pp] = 0
-        #             ebt[pp] = 0
-        #
-        #             r0 = scale_map[ci,cj]
-        #
-        #             if r0 >= 1:
-        #                 c_i[:] = ci
-        #                 c_j[:] = cj
-        #                 val1 = c_i - pix_x
-        #                 val2 = c_j - pix_y
-        #                 radius = np.sqrt(val1**2 + val2**2)
-        #
-        #                 region = no_source[np.where(radius <= r0)]
-        #
-        #                 sumn = np.sum(region)
-        #                 sumu = region.size
-        #
-        #                 frac = sumn/sumu
-        #
-        #                 fracdtime = frac*dtime
-        #                 edt[pp] = fracdtime
-        #                 ebt[pp] = fracdtime * bg_to_data_ratio
-        #
-        #                 if (pp % 1000 == 0) or (pp == 1) or (pp == n_regions):
-        #                     print("Region {pp} of {num_regions}.".format(
-        #                         pp=pp,
-        #                         num_regions=n_regions
-        #                     ))
-        #                     print("edt={edt}\tebt={ebt}".format(
-        #                         edt=edt[pp],
-        #                         ebt=ebt[pp]
-        #                     ))
-        #                     print("Time elapsed (minutes): {time:0.2f}\n".format(
-        #                         time=(time.time()-timer)/60
-        #                     ))
-        #             pp += 1
-        #
-        #
-        # effd_1d = edt.flatten()
-        # effb_1d = ebt.flatten()
-        #
-        # effd_1d = [str(x) for x in effd_1d]
-        # effb_1d = [str(x) for x in effb_1d]
-        #
-        # effdtime_string = "\n".join(effd_1d)
-        # effbtime_string = "\n".join(effb_1d)
-        #
-        # io.write_contents_to_file(effdtime_string, observation.effdtime, False)
-        # io.write_contents_to_file(effbtime_string, observation.effbtime, False)
-        #
-        # print("{efb} and {efd} written to disk.".format(
-        #     efb=observation.effbtime,
-        #     efd=observation.effdtime
-        # ))
-        # print("Time elapsed (in minutes): {time}".format(
-        #     time=(time.time() - timer)/60
-        # ))
 
 
 def prepare_for_spec(cluster_obj: cluster.ClusterObj):
@@ -545,18 +496,6 @@ def prepare_for_spec(cluster_obj: cluster.ClusterObj):
 
         io.write_contents_to_file(exposure, observation.exposure_time_file, binary=False)
 
-        # numlines = []
-        # numlines.append(io.num_lines_in(observation.scale_map_region_list_filename))
-        # numlines.append(io.num_lines_in(observation.effbtime))
-        # numlines.append(io.num_lines_in(observation.effdtime))
-        #
-        # if len(set(numlines)) != 1:
-        #     print("All elements of {numlines} not equal.".format(numlines=numlines))
-        # else:
-        #     print("Files for observation {obsid} copied to {super_comp_dir}".format(
-        #         obsid=observation.id,
-        #         super_comp_dir=cluster_obj.super_comp_dir
-        #     ))
 
 
 def make_commands_lis(cluster: cluster.ClusterObj, resolution):

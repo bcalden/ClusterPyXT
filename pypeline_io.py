@@ -30,7 +30,7 @@ class Ansi:
     # clearing line codes
     CLEAR_UNTIL_END_OF_LINE = "\u001b[0K"
     CLEAR_UNTIL_START_OF_LINE = "\u001b[1K"
-    CLEAR_LINE = "\u001b[2K"
+    CLEAR_LINE = '\x1b[2K\r'
 
 def flush():
     sys.stdout.flush()
@@ -40,7 +40,6 @@ def write(string):
 
 def clear_line():
     sys.stdout.write(Ansi.CLEAR_LINE)
-    move_cursor_left(1000)
     return
 
 def reset_cursor():
@@ -364,6 +363,7 @@ def get_cluster_info_from_csv(csv_file):
 def make_initial_data_dir(directory):
     if not os.path.isdir(directory):
         make_directory(directory)
+
 
 
 def print_red(string):
