@@ -2,10 +2,9 @@
 # Nov 28, 2018
 
 import sys
-import errno
 import argparse
-import acb
 import pypeline_io as io
+from errors import ClusterPyError
 
 
 # import setup_for_testing as test
@@ -22,7 +21,7 @@ try:
     import ciao_contrib
 except ImportError or ModuleNotFoundError:
     print("Failed to import CIAO python scripts. \n CIAO must be running prior to starting this script!")
-    exit()
+    sys.exit(ClusterPyError.ciao_not_running)
 
 
 import cluster

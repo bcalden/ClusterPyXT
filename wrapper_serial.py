@@ -1,10 +1,8 @@
 import pix2pix
 import cluster
 import argparse
-#import multiprocessing as mp
-import numpy as np
 import time
-import pypeline_io as io
+
 
 def get_arguments():
     help_str = """

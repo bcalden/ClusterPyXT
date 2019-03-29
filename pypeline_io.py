@@ -88,7 +88,6 @@ def make_directory(directory):
     except OSError as err:
         if err.errno == errno.EEXIST:
             print("Directory {} already exists, skipping.".format(directory))
-            pass
         elif err.errno in [errno.EACCES, errno.EROFS]:
             print("Unable to create {}, check user permissions allow for write access to {} and its"
                   "parent directories.".format(directory, directory))

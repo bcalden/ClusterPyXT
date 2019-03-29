@@ -1,7 +1,6 @@
 import ciao
 import pypeline_io as io
 import numpy as np
-import time
 import cluster
 import sys
 from sherpa.astro import ui as sherpa

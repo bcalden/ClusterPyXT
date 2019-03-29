@@ -149,7 +149,7 @@ def find_shock_in(clstr: cluster.ClusterObj):
     sa2d, mach2d = pl.histogram(mach, bins=50, range=[0.1, 4.0])
     # sa2d = 1.0*sa2d*(1.0*fov/pixels)**2
 
-    fig = pl.figure(figsize=(6.0, 6.0), dpi=200)
+    #fig = pl.figure(figsize=(6.0, 6.0), dpi=200)
     #
     pl.clf()
     pl.semilogy(mach2d[1:], sa2d / (mach2d[1] - mach2d[0]), 'k', ls='steps-')

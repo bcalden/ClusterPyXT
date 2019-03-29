@@ -184,9 +184,6 @@ def create_scale_map(cluster):
     cts_image = np.zeros(mask_fits[0].data.shape)
     back_rescale = np.zeros(mask_fits[0].data.shape)
 
-    t_obs = 0.0
-    t_back = 0.0
-
     for obs in cluster.observations:
         obs_cts_image_fits = fits.open(obs.acisI_comb_img)
         obs_back_image_fits = fits.open(obs.backI_comb_img)
@@ -199,23 +196,23 @@ def create_scale_map(cluster):
 
         back_rescale += (t_obs/t_back)*obs_back_image_fits[0].data
 
-    sigma_back = np.sqrt(back_rescale)
-    sigma_cts = np.sqrt(cts_image)
+    # sigma_back = np.sqrt(back_rescale)
+    # sigma_cts = np.sqrt(cts_image)
 
     signal = cts_image - back_rescale
 
     signal[np.where(signal < 0)] = 0
 
-    noise = np.sqrt(sigma_cts**2 + sigma_back**2)
-
-    scale_file = cluster.scale_map_file
-    sn_file = cluster.sn_map
+    # noise = np.sqrt(sigma_cts**2 + sigma_back**2)
+    #
+    # scale_file = cluster.scale_map_file
+    # sn_file = cluster.sn_map
 
     sz = signal.shape
     nx = sz[0]
     ny = sz[1]
 
-    radius_map = np.zeros(sz)
+    # radius_map = np.zeros(sz)
 
     scale_map = np.zeros(sz)
     sn_map = np.zeros(sz)
@@ -235,7 +232,7 @@ def create_scale_map(cluster):
 
     max_radius = 100
     r = max_radius + 1  # +1 may be a remnant of IDL indexing
-    dr = 24.0
+    #dr = 24.0
     min_dr = 0.125
 
     det = mask_fits[0].data

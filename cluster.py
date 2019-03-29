@@ -537,7 +537,8 @@ class ClusterObj:
         :return:
         """
         if ("" == self.name) or ("" == self.data_directory):
-            assert "Trying to write before any work done"
+            print("Trying to write cluster data file before any work complete")
+            sys.exit(1)
 
         cluster_config = configparser.ConfigParser()
         cluster_dict = dict(self)
@@ -1208,8 +1209,6 @@ Last Step Completed: {}""".format(self.name,
         return all_regions
 
     def write_effective_times_to_fits(self):
-        header = self.scale_map_header
-
         import astropy.io.fits as fits
 
         for obs in self.observations:
