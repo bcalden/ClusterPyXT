@@ -1212,7 +1212,7 @@ def finish_stage_5(cluster: cluster.ClusterObj):
     to correct exposures."""
 
     print(finish_str)
-    print_stage_tmap_prep()
+    print_stage_tmap_prep(cluster)
 
 
 def print_stage_tmap_prep(cluster: cluster.ClusterObj):
@@ -1268,7 +1268,7 @@ def start_from_last(cluster: cluster.ClusterObj):
         return
 
     elif last_stage_completed == Stage.five:
-        print_stage_tmap_prep()
+        print_stage_tmap_prep(cluster)
         ### To be implemented
         # run_stage_tmap(cluster)
         # cluster.last_step_completed = Stage.tmap.value
