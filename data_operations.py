@@ -6,6 +6,7 @@ def normalize_data(image: np.ndarray):
 
     return normalized_image
 
+
 def make_sizes_match(image1, image2):
     # quit early if the image shapes already match
     if image1.shape == image2.shape:

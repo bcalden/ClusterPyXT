@@ -484,9 +484,6 @@ def prepare_for_spec(cluster_obj: cluster.ClusterObj):
         io.copy(observation.back, cluster_obj.backI_clean_obs(observation.id))
         io.copy(observation.aux_response_file, observation.arf_sc)
         io.copy(observation.redistribution_matrix_file, observation.rmf_sc)
-        #io.copy(observation.effdtime, cluster_obj.effdtime_file_obs(observation.id))
-        #io.copy(observation.effbtime, cluster_obj.effbtime_file_obs(observation.id))
-        #io.copy(observation.scale_map_region_list, cluster_obj.scalemap_regionlist_file_obs(observation.id))
         io.copy(observation.acis_mask, observation.acis_mask_sc)
 
         exposure = ciao.get_exposure(observation.clean)
@@ -589,7 +586,7 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
 
     io.make_directory(cluster.output_dir)
 
-    offset = resolution
+    offset = [None, 2, 1, 0][resolution]
 
     mask_fits = fits.open(cluster.combined_mask)
     mask = mask_fits[0].data
@@ -618,8 +615,8 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
         high_y = y + offset + 1
 
         temperature_map[low_x:high_x, low_y:high_y] = temperatures[i]
-        temperature_error_map[low_x:high_x, low_y:high_y] = (np.abs(temp_error_plus[i]) +
-                                                             np.abs(temp_error_minus[i]))/2
+        temperature_error_map[low_x:high_x, low_y:high_y] = (np.abs(temp_error_plus[i] -
+                                                             temp_error_minus[i]))/2
         temperature_fractional_error_map[low_x:high_x, low_y:high_y] = \
             (temperature_error_map[x,y]/temperature_map[x,y])*100
 

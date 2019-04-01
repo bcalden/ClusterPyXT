@@ -7,6 +7,8 @@ import re
 import pycrates as pc
 import sys
 import csv
+import matplotlib.pyplot as plt
+from astropy.io import fits
 
 class Colors:
     BLACK = "\u001b[30m"
@@ -371,3 +373,21 @@ def print_red(string):
         string=string,
         reset=Colors.RESET
     ))
+
+
+def write_numpy_array_to_image(image_array, filename):
+    plt.subplots(ncols=1, nrows=1, figsize=(5, 5))
+    plt.imshow(image_array, origin='lower')
+    plt.savefig(filename, dpi=300, bbox='tight')
+    pass
+
+
+def write_numpy_array_to_fits(image_array, filename, header):
+    fits.writeto(filename, image_array, header=header, overwrite=True)
+    return
+
+
+def fits_to_image(fits_file, output_filename):
+    fits_file = fits.open(fits_file)
+    data = fits_file[0].data
+    write_numpy_array_to_image(data, output_filename)
