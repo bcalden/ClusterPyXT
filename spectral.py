@@ -131,4 +131,4 @@ if __name__ == '__main__':
                                                  time.gmtime(time.time() - start_time))
                     print("Time elapsed: {}.".format(time_elapsed))
 
-        print_stage_tmap_prep(cluster)
+        print_stage_tmap_prep(clstr)
