@@ -1245,11 +1245,9 @@ def run_stage_spectral_fits(cluster: cluster.ClusterObj):
     print("Not implemented yet. Complete spectral fits by running:"
           "python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini")
 
-
-
+    
 def finish_stage_spectral_fits(cluster: cluster.ClusterObj):
     print_stage_tmap_prep(cluster)
-    pass
 
 
 def print_stage_tmap_prep(cluster: cluster.ClusterObj):
