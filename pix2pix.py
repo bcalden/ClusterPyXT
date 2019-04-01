@@ -1,7 +1,6 @@
 import ciao
 import pypeline_io as io
 import numpy as np
-import time
 import cluster
 import sys
 from sherpa.astro import ui as sherpa
@@ -24,14 +23,7 @@ def pix_to_pix(cluster: cluster.ClusterObj, region_number, process='main'):
             region=region_number
         ))
 
-        effective_data_times = observation.effective_data_time
-        effective_background_times = observation.effective_background_time
-
-        coordinates_for_region = observation.coordinates_for_scale_map_region(region_number, scale_map_region_index)
-        #coordinates_for_region = observation.coordinates_for_big_region_index(region_number, big_index_map)
-
-        effective_data_time_for_region = effective_data_times[coordinates_for_region][0]
-        effective_background_time_for_region = effective_background_times[coordinates_for_region][0]
+        effective_data_time_for_region = observation.effective_data_time_for_region(region_number)
 
         exposure_time = observation.exposure_time
         signal_to_noise = 10000 * (effective_data_time_for_region / exposure_time)
@@ -40,28 +32,12 @@ def pix_to_pix(cluster: cluster.ClusterObj, region_number, process='main'):
             region=region_number
         ))
         if signal_to_noise >= 900:
-            temp_region = observation.get_region_from_region_number(region_number)
-            if temp_region == -1:
-                return
-            temp_region_file_name = io.get_path("{super_comp_dir}/temp_{region_number}_{obsid}.reg".format(
-                super_comp_dir=observation.cluster.super_comp_dir,
-                region_number=region_number,
-                obsid=observation.id
-            ))
-            io.write_contents_to_file(temp_region, temp_region_file_name, False)
-
             #extract cleaned spec & background
             data_pi, back_pi = ciao.extract_spec(observation,
-                                                 temp_region_file_name,
-                                                 region_number,
-                                                 effective_data_time_for_region,
-                                                 effective_background_time_for_region
-                                                 )
+                                                 region_number)
             good_observations.append(observation.id)
             data_pi_files.append(data_pi)
             background_pi_files.append(back_pi)
-
-            io.delete(temp_region_file_name)
 
     #cluster = observation.cluster
     number_of_observations = len(good_observations)
@@ -140,7 +116,7 @@ def pix_to_pix(cluster: cluster.ClusterObj, region_number, process='main'):
                                        norm_err_plus=norm_err_plus,
                                        norm_err_minus=norm_err_minus,
                                        reduced_x2=reduced_x2,
-                                       observation_id=observations
+                                       observation_ids=observations
                                        )
     else:
         cluster.write_best_fits_to_file(region=int(region_number),
@@ -151,7 +127,7 @@ def pix_to_pix(cluster: cluster.ClusterObj, region_number, process='main'):
                                         norm_err_plus=norm_err_plus,
                                         norm_err_minus=norm_err_minus,
                                         reduced_x2=reduced_x2,
-                                        observation_id=observations)
+                                        observation_ids=observations)
 
     # cluster.write_all_fits_to_file(int(region_number),
     #                                fit_results,
@@ -177,7 +153,6 @@ def index_of_best_fit(fits, confs):
                 best_fit = fit.rstat
 
     return best_fit_index
-
 
 
 if __name__ == "__main__":

@@ -1,6 +1,4 @@
-import sys
 import os
-import errno
 import cluster
 import pypeline_io as io
 import configparser

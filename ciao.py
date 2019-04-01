@@ -305,7 +305,7 @@ def ccd_sort(cluster):
                 rt.dmcopy(infile=observation.reprocessed_evt2_for_ccd(acis_id),
                           outfile=observation.acis_ccd(acis_id),
                           clobber=True)
-            except OSError as oserr:
+            except OSError:
                 print("Error generating event files for each CCD.")
                 print("Observation: {}\t CCD: {}".format(observation.id, acis_id))
                 print("File: {}".format(observation.reprocessed_evt2_for_ccd(acis_id)))
@@ -537,9 +537,9 @@ def lightcurves_with_exclusion(cluster):
 
         print("Creating the image with sources removed")
 
-        data = observation.acis_nosrc_filename
+        #data = observation.acis_nosrc_filename
 
-        image_nosrc = "{}/img_acisI_nosrc_fullE.fits".format(observation.analysis_directory)
+        #image_nosrc = "{}/img_acisI_nosrc_fullE.fits".format(observation.analysis_directory)
 
         if io.file_exists(observation.exclude_file):
             print("Removing sources from event file to be used in lightcurve")
@@ -598,9 +598,9 @@ def lightcurves_with_exclusion(cluster):
 
         rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
 
-        data_clean = outfile
+        #data_clean = outfile
 
-        print("Don't forget to check the light curves!")
+        #print("Don't forget to check the light curves!")
 
 
 def sources_and_light_curves(cluster):
@@ -820,9 +820,8 @@ def run_ds9_for_master_crop(cluster):
 
 
 def stage_4(cluster: cluster.ClusterObj):
-
     from astropy.io import fits
-    # This portion of the pypeline 
+
     combined_dir = cluster.combined_directory
 
     io.make_directory(combined_dir)
@@ -885,7 +884,7 @@ def create_combined_images(cluster):
     counts_image = np.zeros(mask[0].data.shape)
     back_rescale = np.zeros(mask[0].data.shape)
 
-    t_obs = t_back = 0.0
+    #t_obs = t_back = 0.0
 
     good_crop = False
     while not good_crop:
@@ -951,7 +950,13 @@ def create_combined_images(cluster):
     print("Images combined!")
 
 
-def extract_spec(observation, region_file, region_number, dtime, btime):
+def extract_spec(observation, region_number):
+    dtime = observation.effective_data_time_for_region(region_number)
+    btime = observation.effective_background_time_for_region(region_number)
+
+    observation.write_temp_region(region_number)
+    region_file = observation.temp_region_filename(region_number)
+
     infile = "{clean}[sky=region({region_file})][bin pi]".format(
         clean=observation.sc_clean,
         region_file=region_file
@@ -1015,8 +1020,9 @@ def extract_spec(observation, region_file, region_number, dtime, btime):
     rt.dmhedit(infile=back_pi, filelist="", operation="add", key="EXPOSURE", value=btime)
 
     io.append_to_file(observation.cluster.spec_lis(region_number), "{}\n".format(data_pi))
+    io.delete(observation.temp_region_filename(region_number))
 
-    return (data_pi, back_pi)
+    return data_pi, back_pi
 
 
 def spec_extract(observation, region_file, region_num, min_counts):
@@ -1192,9 +1198,9 @@ def finish_stage_4(cluster: cluster.ClusterObj):
 
 
 def print_stage_5_prep(cluster: cluster.ClusterObj):
-    prep_str = """You are now ready for Stage 5. This stage only requires all previous stages to be completed. 
-    Stage 5 calculates the adaptive circular bins, generates the scale map, and calculates exposure corrections. 
-    It can take a long time (~10s of hours). 
+    prep_str = """You are now ready for Stage 5. This stage only requires all previous stages to be completed.
+    Stage 5 calculates the adaptive circular bins, generates the scale map, and calculates exposure corrections.
+    It can take a long time (~10s of hours).
 
     After stage 5 is complete, you are ready for spectral fitting.
 
@@ -1212,12 +1218,51 @@ def finish_stage_5(cluster: cluster.ClusterObj):
     to correct exposures."""
 
     print(finish_str)
+    print_stage_spectral_fits_prep(cluster)
+
+
+def print_stage_spectral_fits_prep(cluster: cluster.ClusterObj):
+    prep_str = """Now ready for spectral fitting. This can be offloaded to a remote machine if necessary.
+    If offloading, copy the cluster configuration file, {cluster_config},
+    and the acb directory to the remote machine. Update the configuration file to reflect the appropriate
+    path of your data.
+    
+    Next, with CIAO running, simply run:
+    
+        python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini
+    
+    The resolution parameter can be set to either 1 - low resolution, 2 - medium resolution, or 3 - high resolution.
+    If the parallel flag indicates to run in parallel. If the number of cpus is not set (--num_cpus), ClusterPyXT uses
+    the total number of cores on your machine. 
+    
+    If you must restart the fitting for any reason, simply add the --continue flag in order to not redo any of the fits.""".format(
+        cluster_config=cluster.configuration_filename
+    )
+    print(prep_str)
+
+
+def run_stage_spectral_fits(cluster: cluster.ClusterObj):
+    print("Not implemented yet. Complete spectral fits by running:"
+          "python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini")
+
+    
+def finish_stage_spectral_fits(cluster: cluster.ClusterObj):
     print_stage_tmap_prep(cluster)
 
 
 def print_stage_tmap_prep(cluster: cluster.ClusterObj):
-    prep_str = """Now ready for spectral fitting. Please see README.md either in the main ClusterPyXT directory, or on github, for
-    further details on how to run this, as well as subsequent steps."""
+    prep_str = """Now ready for spectral fitting. 
+    
+    If offloaded, copy the spectral fits file, {spectral_fits},
+    back to the local machine. 
+    
+    Next, run 
+        
+        python acb.py --temperature_map --resolution 2 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini
+    
+    This will create the temperature map and allow for the creation of the pressure maps.""".format(
+        spectral_fits=cluster.spec_fits_file
+    )
 
     print(prep_str)
 
@@ -1281,7 +1326,10 @@ def start_from_last(cluster: cluster.ClusterObj):
     return
 
 
-def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
+def initialize_cluster(name="", obsids=None, abundance=0.3, redshift=0.0, nH=0.0):
+    if obsids is None:
+        obsids = []
+
     clstr = cluster.ClusterObj(name=name, observation_ids=obsids, abundance=abundance,
                                redshift=redshift, hydrogen_column_density=nH,
                                data_directory=config.data_directory())

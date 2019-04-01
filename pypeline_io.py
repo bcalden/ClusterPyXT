@@ -7,6 +7,8 @@ import re
 import pycrates as pc
 import sys
 import csv
+import matplotlib.pyplot as plt
+from astropy.io import fits
 
 class Colors:
     BLACK = "\u001b[30m"
@@ -30,7 +32,7 @@ class Ansi:
     # clearing line codes
     CLEAR_UNTIL_END_OF_LINE = "\u001b[0K"
     CLEAR_UNTIL_START_OF_LINE = "\u001b[1K"
-    CLEAR_LINE = "\u001b[2K"
+    CLEAR_LINE = '\x1b[2K\r'
 
 def flush():
     sys.stdout.flush()
@@ -40,7 +42,6 @@ def write(string):
 
 def clear_line():
     sys.stdout.write(Ansi.CLEAR_LINE)
-    move_cursor_left(1000)
     return
 
 def reset_cursor():
@@ -89,7 +90,6 @@ def make_directory(directory):
     except OSError as err:
         if err.errno == errno.EEXIST:
             print("Directory {} already exists, skipping.".format(directory))
-            pass
         elif err.errno in [errno.EACCES, errno.EROFS]:
             print("Unable to create {}, check user permissions allow for write access to {} and its"
                   "parent directories.".format(directory, directory))
@@ -366,9 +366,28 @@ def make_initial_data_dir(directory):
         make_directory(directory)
 
 
+
 def print_red(string):
     print("{red}{string}{reset}".format(
         red=Colors.RED,
         string=string,
         reset=Colors.RESET
     ))
+
+
+def write_numpy_array_to_image(image_array, filename):
+    plt.subplots(ncols=1, nrows=1, figsize=(5, 5))
+    plt.imshow(image_array, origin='lower')
+    plt.savefig(filename, dpi=300, bbox='tight')
+    pass
+
+
+def write_numpy_array_to_fits(image_array, filename, header):
+    fits.writeto(filename, image_array, header=header, overwrite=True)
+    return
+
+
+def fits_to_image(fits_file, output_filename):
+    fits_file = fits.open(fits_file)
+    data = fits_file[0].data
+    write_numpy_array_to_image(data, output_filename)

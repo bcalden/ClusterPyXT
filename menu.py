@@ -128,7 +128,7 @@ class CursesMenu(object):
 
     def display(self):
         selected_option = self.prompt_selection()
-        i, _ = self.screen.getmaxyx()
+        #i, _ = self.screen.getmaxyx()
         #curses.endwin()
         os.system('clear')
         if selected_option < len(self.menu_options['options']):
@@ -303,7 +303,7 @@ def make_menu():
     print()
     print("Be sure to note any instructions before ending.")
     io.move_cursor_left(1000)
-    print("Press enter to end... (screen will be erased)")
+    print("Press enter to end... (screen may be erased)")
     main_menu.screen.getch()
     curses.nocbreak()
     main_menu.screen.keypad(False)

@@ -89,14 +89,16 @@ As there can be anywhere from 10<sup>3</sup> to 10<sup>5</sup> regions to fit, t
 
 To do the spectral fitting, only a subset of the data is required. If processing on a remote machine, insure the remote machine has the required software and `ClusterPyXT` is configured (see above). Make a directory for your cluster in the remote cluster data directory (set in the system configuration on first run, also set in `ClusterPyXT\pypeline_config.ini`). The files required are the configuration file (`ClusterName_pypeline_config.ini`) and the `acb` folder within the cluster directory. Upload both of these to the remote machines cluster folder you just created. You are now ready for spectral fitting.
 
-To run the spectral fitting portion of the pipeline in serial, run `python wrapper_serial.py --cluster_config_file 'path/to/cluster_config_file'`.
+To run the spectral fitting portion of the pipeline in serial, run `python spectral.py --cluster_config_file 'path/to/cluster_config_file' --resolution 2`.
 
-To run in parallel, run `python wrapper.py --parallel --num_cpus N --cluster_config_file 'path/to/cluster\_config\_file'`. Note, in the current version of the pipeline, there is a bug which can cause a memory leak when running in parallel on a single machine. If you need to restart for this reason, or any reason, simply add the `--continue` argument to the above `wrapper.py` command and `ClusterPyXT` will begin where it left off without having to re-fit any region.
+To run in parallel (recommended), run `python spectral.py --parallel --num_cpus N --cluster_config_file 'path/to/cluster\_config\_file' --resolution 2`. If you need to restart for this reason, or any reason, simply add the `--continue` argument to the above `spectral.py` command and `ClusterPyXT` will begin where it left off without having to re-fit any region.
+
+The resolution is set as either 1 - low resolution, 2 - medium resolution, or 3 - high resolution.
 
 To run on a supercomputer, you can make use of the command file generated (`commands_ClusterName.lis`) in the `acb` directory. This command file has a line for each region to be fit that directly calls the spectral fitting routine on that region. You can write a simple script to parse this command file and send it to each of the nodes used in the supercomputer. 
 
 #### Temperature Map Creation
-After spectral fitting, the last thing to do is create the temperature map. If you did the spectral fitting on a remote machine, you need to download the three `.csv` files created within the remote `acb` directory. Next, simply run `python acb.py --temperature_map --cluster_config_file 'path/to/cluster_config_file'`.
+After spectral fitting, the last thing to do is create the temperature map. If you did the spectral fitting on a remote machine, you need to download the three `.csv` files created within the remote `acb` directory. Next, simply run `python acb.py --temperature_map --cluster_config_file 'path/to/cluster_config_file' --resolution 2`.
 Check the `clustername/main_output/` directory for the output.
 
 #### Pressure Map Creation

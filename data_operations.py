@@ -1,11 +1,11 @@
 import numpy as np
-import astropy.io.fits as fits
 
 
 def normalize_data(image: np.ndarray):
     normalized_image = (image - image.min()) / (image.max() - image.min())
 
     return normalized_image
+
 
 def make_sizes_match(image1, image2):
     # quit early if the image shapes already match

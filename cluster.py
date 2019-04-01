@@ -6,6 +6,16 @@ import config
 import pypeline_io as io
 import numpy as np
 import astropy.io.fits as fits # migrate pycrates commands to fits
+import logging
+
+try:
+    from ciao_contrib import runtool as rt
+    from sherpa.astro import ui as sherpa
+    import pychips
+except ImportError:
+    print("Unable to load CIAO. Fitting calls will fail")
+    rt = None
+    sherpa = None
 
 acisI = [0, 1, 2, 3]
 acisS = [4, 5, 6, 7, 8, 9]
@@ -84,6 +94,90 @@ class Observation:
             else:
                 acis_S_ccds.append(ccd)
         return acis_I_ccds, acis_S_ccds
+
+    def effective_data_time_for_region(self, region_number):
+        coordinates_for_region = self.coordinates_for_scale_map_region(region_number,
+                                                                       self.cluster.scale_map_region_index)
+        return self.effective_data_time[coordinates_for_region][0]
+
+    def effective_background_time_for_region(self, region_number):
+        coordinates_for_region = self.coordinates_for_scale_map_region(region_number,
+                                                                       self.cluster.scale_map_region_index)
+        return self.effective_background_time[coordinates_for_region][0]
+
+    def extract_spec_for_region(self, region_number):
+        data_time = self.effective_data_time_for_region(region_number)
+        back_time = self.effective_background_time_for_region(region_number)
+
+        self.write_temp_region(region_number)
+        region_file = self.temp_region_filename(region_number)
+
+        infile = "{clean}[sky=region({region_file})][bin pi]".format(
+            clean=self.sc_clean,
+            region_file=region_file
+        )
+
+        outfile = io.get_path(
+            "{super_comp_dir}/{obsid}_{region_number}.pi".format(
+                super_comp_dir=self.cluster.super_comp_dir,
+                obsid=self.id,
+                region_number=region_number
+            ))
+
+        rt.dmextract(infile=infile, outfile=outfile, clobber=True)
+
+        infile = "{back}[sky=region({region_file})][bin pi]".format(
+            back=self.sc_back,
+            region_file=region_file
+        )
+
+        outfile = io.get_path(
+            "{super_comp_dir}/{obsid}_back_{region_number}.pi".format(
+                super_comp_dir=self.cluster.super_comp_dir,
+                obsid=self.id,
+                region_number=region_number
+            ))
+
+        rt.dmextract(infile=infile, outfile=outfile, clobber=True)
+
+        data_pi = "{super_comp_dir}/{obsid}_{region_number}.pi".format(
+            super_comp_dir=self.cluster.super_comp_dir,
+            obsid=self.id,
+            region_number=region_number
+        )
+
+        back_pi = "{super_comp_dir}/{obsid}_back_{region_number}.pi".format(
+            super_comp_dir=self.cluster.super_comp_dir,
+            obsid=self.id,
+            region_number=region_number
+        )
+
+        warf = "'{super_comp_dir}/{name}_{obsid}.arf'".format(
+            super_comp_dir=self.cluster.super_comp_dir,
+            name=self.cluster.name,
+            obsid=self.id
+        )
+
+        wrmf = "'{super_comp_dir}/{name}_{obsid}.rmf'".format(
+            super_comp_dir=self.cluster.super_comp_dir,
+            name=self.cluster.name,
+            obsid=self.id
+        )
+
+        # Put this background file into the 'grouped' data file for the region
+
+        # rt.dmhedit(infile=data_pi, filelist="", operation="add", key="BACKFILE", value=back_pi)
+
+        rt.dmhedit(infile=data_pi, filelist="", operation="add", key="EXPOSURE", value=data_time)
+        rt.dmhedit(infile=data_pi, filelist="", operation="add", key="RESPFILE", value=wrmf)
+        rt.dmhedit(infile=data_pi, filelist="", operation="add", key="ANCRFILE", value=warf)
+        rt.dmhedit(infile=data_pi, filelist="", operation="add", key="BACKFILE", value=back_pi)
+        rt.dmhedit(infile=back_pi, filelist="", operation="add", key="EXPOSURE", value=back_time)
+
+        io.append_to_file(self.cluster.spec_lis(region_number), "{}\n".format(data_pi))
+        io.delete(self.temp_region_filename(region_number))
+
+        return data_pi, back_pi
 
     @property
     def directory(self):
@@ -466,6 +560,20 @@ class Observation:
             print('Error: region {reg} not found. exiting'.format(reg=region_number))
             return -1
 
+    def temp_region_filename(self, region_number):
+        if region_number == -1:
+            return
+        temp_region_file_name = io.get_path("{acb_dir}/temp_{region_number}_{obsid}.reg".format(
+            acb_dir=self.cluster.acb_dir,
+            region_number=region_number,
+            obsid=self.id
+        ))
+        return temp_region_file_name
+
+    def write_temp_region(self, region_number):
+        region = self.get_region_from_region_number(region_number)
+        io.write_contents_to_file(region, self.temp_region_filename(region_number), False)
+
     def reprocessed_evt2_for_ccd(self, ccd_id):
         return io.get_path("{evt2_file}[ccd_id={ccd_id}]".format(evt2_file=self.reprocessed_evt2_filename,
                                                                    ccd_id=ccd_id))
@@ -537,7 +645,8 @@ class ClusterObj:
         :return:
         """
         if ("" == self.name) or ("" == self.data_directory):
-            assert "Trying to write before any work done"
+            print("Trying to write cluster data file before any work complete")
+            sys.exit(1)
 
         cluster_config = configparser.ConfigParser()
         cluster_dict = dict(self)
@@ -977,36 +1086,36 @@ Last Step Completed: {}""".format(self.name,
                            T=0.0, T_err_plus=0.0,
                            T_err_minus=0.0, norm=0.0,
                            norm_err_plus=0.0, norm_err_minus=0.0,
-                           reduced_x2=0.0, observation_id=0):
+                           reduced_x2=0.0, observation_ids=""):
         self.write_fits_to_file(self.spec_fits_file, region=region,
                                 T=T, T_err_plus=T_err_plus, T_err_minus=T_err_minus,
                                 norm=norm, norm_err_plus=norm_err_plus,
                                 norm_err_minus=norm_err_minus, reduced_x2=reduced_x2,
-                                observation_id=observation_id)
+                                observation_ids=observation_ids)
 
     def write_fits_to_file(self, filename, region=0,
                            T=0.0, T_err_plus=0.0,
                            T_err_minus=0.0, norm=0.0,
                            norm_err_plus=0.0, norm_err_minus=0.0,
-                           reduced_x2=0.0, observation_id=0):
+                           reduced_x2=0.0, observation_ids=""):
         with open(filename, 'a') as f:
             writer = csv.writer(f)
 
             writer.writerow([region, T, T_err_plus, T_err_minus,
                              norm, norm_err_plus, norm_err_minus,
-                             reduced_x2, observation_id
+                             reduced_x2, observation_ids
                              ])
 
     def write_bad_fits_to_file(self, region=0,
                                T=0.0, T_err_plus=0.0,
                                T_err_minus=0.0, norm=0.0,
                                norm_err_plus=0.0, norm_err_minus=0.0,
-                               reduced_x2=0.0, observation_id=0):
+                               reduced_x2=0.0, observation_ids=""):
         self.write_fits_to_file(self.bad_fits_file, region=region,
                                 T=T, T_err_plus=T_err_plus, T_err_minus=T_err_minus,
                                 norm=norm, norm_err_plus=norm_err_plus,
                                 norm_err_minus=norm_err_minus, reduced_x2=reduced_x2,
-                                observation_id=observation_id)
+                                observation_ids=observation_ids)
 
     def write_all_fits_to_file(self, region_number, fit_results,
                                confidences, observations):
@@ -1025,7 +1134,7 @@ Last Step Completed: {}""".format(self.name,
                                     T=T, T_err_plus=T_err_plus, T_err_minus=T_err_minus,
                                     norm=norm, norm_err_plus=norm_err_plus,
                                     norm_err_minus=norm_err_minus, reduced_x2=reduced_x2,
-                                    observation_id=observation_id)
+                                    observation_ids=observation_id)
 
     @property
     def temperature_fits(self):
@@ -1207,16 +1316,181 @@ Last Step Completed: {}""".format(self.name,
         print("Number of regions left to fit: {reg}.".format(reg=len(all_regions)))
         return all_regions
 
-    def write_effective_times_to_fits(self):
-        header = self.scale_map_header
-
-        import astropy.io.fits as fits
-
+    def write_effective_times_to_fits(self, pdf=False, png=False):
         for obs in self.observations:
             fits_data_filename = "{}.fits".format(obs.effective_data_time_file)
             fits_background_filename = "{}.fits".format(obs.effective_background_time_file)
-            fits.writeto(fits_data_filename, obs.effective_data_time)
-            fits.writeto(fits_background_filename, obs.effective_background_time)
+            io.write_numpy_array_to_fits(obs.effective_data_time, fits_data_filename, self.scale_map_header)
+            io.write_numpy_array_to_fits(obs.effective_background_time, fits_background_filename, self.scale_map_header)
+
+            if pdf:
+                pdf_data_filename = "{}.pdf".format(obs.effective_data_time_file)
+                pdf_background_filename = "{}.pdf".format(obs.effective_background_time_file)
+                io.write_numpy_array_to_image(obs.effective_data_time, pdf_data_filename)
+                io.write_numpy_array_to_image(obs.effective_background_time, pdf_background_filename)
+
+            if png:
+                png_data_filename = "{}.png".format(obs.effective_data_time)
+                png_background_filename = "{}.png".format(obs.effective_background_time)
+                io.write_numpy_array_to_image(obs.effective_data_time, png_data_filename)
+                io.write_numpy_array_to_image(obs.effective_background_time, png_background_filename)
+
+    def fit_region_number(self, region_number, output_pdf=False):
+        sherpa_log = logging.getLogger("Sherpa")
+        sherpa_log.setLevel(logging.ERROR)
+
+        print("Processing region number: {reg_num}".format(
+            reg_num=region_number
+        ))
+
+        data_pi_files = []
+        background_pi_files = []
+        good_observations = []
+        for observation in self.observations:
+            print("{region}:\tWorking on observation id: {obsid}".format(
+                obsid=observation.id,
+                region=region_number
+            ))
+
+            effective_data_time_for_region = observation.effective_data_time_for_region(region_number)
+
+            exposure_time = observation.exposure_time
+            signal_to_noise = 10000 * (effective_data_time_for_region / exposure_time)
+            if signal_to_noise >= self.signal_to_noise_threshold:
+                print('{region}:\tMet S/N threshold for {obsid}\t{s_to_n}'.format(
+                    obsid=observation.id,
+                    region=region_number,
+                    s_to_n=signal_to_noise
+                ))
+                # extract cleaned spec & background
+                print("{region}:\tExtracting PI files for {obsid}".format(region=region_number,
+                                                                          obsid=observation.id))
+                data_pi, back_pi = observation.extract_spec_for_region(region_number)
+                good_observations.append(observation.id)
+                data_pi_files.append(data_pi)
+                background_pi_files.append(back_pi)
+
+        #cluster = observation.cluster
+        number_of_observations = len(good_observations)
+
+        print("{region}:\tLoading data pulse invariant files (PI files)".format(region=region_number))
+        for i, data_pi in enumerate(data_pi_files):
+            sherpa.load_pha(i, data_pi)
+            # this should load the arf and rmf files automatically
+            # they are set in the previous function call (ciao.extract_spec())
+
+        print("{region}:\tLoading background PI files".format(region=region_number))
+        for i, background_pi in enumerate(background_pi_files):
+            sherpa.load_bkg(i, background_pi)
+
+
+        #print("Subtracting the background")
+        # subtract the background from the observation
+        for i in range(number_of_observations):
+            sherpa.subtract(i)
+
+        sherpa.set_analysis('energy')
+
+        # usually the data is rather noisey below 0.7 keV and above 8.0 keV.
+        # For low signal to noise regions, the high energy cutoff may need to
+        # be lowered down (to 5 keV for example, look at the data).
+        low_energy_cutoff = 0.7  # [units: keV]
+        high_energy_cutoff = 8.0  # [units: keV]
+        sherpa.ignore(":{loE}, {hiE}:".format(
+            loE=low_energy_cutoff,
+            hiE=high_energy_cutoff
+        ))
+
+        #setting the model for each observation
+        for i in range(number_of_observations):
+            sherpa.set_source(i, sherpa.xsphabs.phabs*sherpa.xsapec.apec)
+
+        print("{region}:\tCreating the model and defining initial fit parameters".format(region=region_number))
+        phabs.nH = self.hydrogen_column_density
+        apec.kT = 8.0
+        apec.Abundanc = self.abundance
+        apec.redshift = self.redshift
+        apec.norm = 1.0
+
+        print("{region}:\tFreezing and thawing parameters".format(region=region_number))
+        sherpa.freeze(phabs.nH, apec.Abundanc, apec.redshift)
+        sherpa.thaw(apec.kT, apec.norm)
+
+        sherpa.fit()
+        sherpa.conf()
+
+        fit_results = sherpa.get_fit_results()
+        confidences = sherpa.get_conf_results()
+
+        # parameter names given in kT, Norm order
+        T = confidences.parvals[0]
+        T_err_plus = confidences.parmaxes[0]
+        T_err_minus = confidences.parmins[0]
+        norm = confidences.parvals[1]
+        norm_err_plus = confidences.parmaxes[1]
+        norm_err_minus = confidences.parmins[1]
+        reduced_x2 = fit_results.rstat
+        observations = ','.join(good_observations)
+
+        print("{region}:\tObservations used:\t{obs}\n"
+              "Reduced X2:\t{rx2}\n"
+              "Temperature:\t{T} keV\n".format(region=region_number,
+                                               obs=good_observations,
+                                               rx2=reduced_x2,
+                                               T=T))
+
+        if T_err_plus == None:
+            self.write_bad_fits_to_file(region=int(region_number),
+                                        T=T,
+                                        T_err_plus=T_err_plus,
+                                        T_err_minus=T_err_minus,
+                                        norm=norm,
+                                        norm_err_plus=norm_err_plus,
+                                        norm_err_minus=norm_err_minus,
+                                        reduced_x2=reduced_x2,
+                                        observation_ids=observations
+                                        )
+        else:
+            self.write_best_fits_to_file(region=int(region_number),
+                                         T=T,
+                                         T_err_plus=T_err_plus,
+                                         T_err_minus=T_err_minus,
+                                         norm=norm,
+                                         norm_err_plus=norm_err_plus,
+                                         norm_err_minus=norm_err_minus,
+                                         reduced_x2=reduced_x2,
+                                         observation_ids=observations)
+
+    # cluster.write_all_fits_to_file(int(region_number),
+        #                                fit_results,
+        #                                confidences,
+        #                                cluster.observations)
+
+        for data_pi in data_pi_files:
+            io.delete(data_pi)
+        for background_pi in background_pi_files:
+            io.delete(background_pi)
+        io.delete(self.spec_lis(region_number))
+
+        print("{region}:\tFinished".format(region=region_number))
+
+        if output_pdf:
+            sherpa.plot_fit()
+            pychips.set_preference('export.orientation', 'landscape')
+            pychips.set_preference('export.clobber', 'True')
+            pychips.set_preference('export.fittopage', 'True')
+            pychips.print_window("{acb_dir}/{region}.pdf".format(
+                acb_dir=self.acb_dir,
+                region=region_number)
+            )
+
+        return "{region}: {temperature} keV".format(region=region_number,
+                                                    temperature=T)
+
+
+    @property
+    def signal_to_noise_threshold(self):
+        return 900
 
 
 def get_observation_ids():
