@@ -91,8 +91,6 @@ def get_arguments():
     return args
 
 
-
-
 if __name__ == "__main__":
     if 1 == len(sys.argv):
         menu.make_menu()

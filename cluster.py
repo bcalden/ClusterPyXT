@@ -216,8 +216,8 @@ class Observation:
 
     @property
     def reprocessing_directory(self):
-        return io.get_path("{analysis_dir}/repro/".format(analysis_dir=self.analysis_directory))
-        #return io.get_path("{obs_dir}/repro/".format(obs_dir=self.directory))
+        # return io.get_path("{analysis_dir}/repro/".format(analysis_dir=self.analysis_directory))
+        return io.get_path("{obs_dir}/repro/".format(obs_dir=self.directory))
 
     @property
     def primary_directory(self):
@@ -266,7 +266,6 @@ class Observation:
             obsid=self.id
         ))
 
-
     @property
     def fov_file(self):
         return io.get_filename_matching("{}/*{}*fov1.fits".format(
@@ -274,13 +273,25 @@ class Observation:
             self.id
         ))[0]
 
-
     @property
     def acisI_comb_img(self):
         return io.get_path("{combined_dir}/acisI_comb_img-{obsid}.fits".format(
             combined_dir=self.combined_directory,
             obsid=self.id))
 
+    @property
+    def acisI_combined_image(self):
+        if not hasattr(self, "_acisI_comb_image"):
+            self._acisI_combined_image = io.get_pixel_values(self.acisI_comb_img)
+
+        return self._acisI_combined_image
+
+    @property
+    def acisI_combined_image_header(self):
+        if not hasattr(self, "_acisI_combined_image_header"):
+            self._acisI_combined_image_header = fits.open(self.acisI_comb_img)[0].header
+
+        return self._acisI_combined_image_header
 
     @property
     def backI_comb_img(self):
@@ -288,6 +299,20 @@ class Observation:
             combined_dir=self.combined_directory,
             obsid=self.id)
         )
+
+    @property
+    def backI_combined_image(self):
+        if not hasattr(self, "_backI_combined_image"):
+            self._backI_combined_image = io.get_pixel_values(self.backI_comb_img)
+
+        return self._backI_combined_image
+
+    @property
+    def backI_combined_image_header(self):
+        if not hasattr(self, "_backI_combined_image_header"):
+            self._backI_combined_image_header = fits.open(self.backI_comb_img)[0].header
+
+        return self._backI_combined_image_header
 
     @property
     def effbtime(self):
@@ -308,18 +333,30 @@ class Observation:
         return io.get_path("{analysis_dir}/merged_back.lis".format(analysis_dir=self.analysis_directory))
 
     @property
-    def acisI_combined_mask(self):
+    def acisI_combined_mask_file(self):
         return io.get_path("{combined_dir}/acisI_comb_mask-{obsid}.fits".format(
             combined_dir=self.combined_directory,
             obsid=self.id
         ))
 
     @property
-    def acisI_nosrc_combined_mask(self):
+    def acisI_combined_mask(self):
+        if not hasattr(self, "_acisI_combined_mask"):
+            self._acisI_combined_mask = io.get_pixel_values(self.acisI_combined_mask_file)
+        return self._acisI_combined_mask
+
+    @property
+    def acisI_nosrc_combined_mask_file(self):
         return io.get_path("{combined_dir}/acisI_comb_mask_nosrc-{obsid}.fits".format(
             combined_dir=self.combined_directory,
             obsid=self.id
         ))
+
+    @property
+    def acisI_nosrc_combined_mask(self):
+        if not hasattr(self, '_acisI_nosrc_combined_mask'):
+            self._acisI_nosrc_combined_mask = io.get_pixel_values(self.acisI_nosrc_combined_mask_file)
+        return self._acisI_nosrc_combined_mask
 
     @property
     def acis_nosrc_filename(self):
@@ -343,11 +380,27 @@ class Observation:
         ))
 
     @property
-    def acisI_high_energy_combined_image(self):
+    def acisI_high_energy_combined_image_file(self):
         return io.get_path("{combined_dir}/acisI_hien_comb_img-{obsid}.fits".format(
             combined_dir=self.combined_directory,
             obsid=self.id
         ))
+
+    @property
+    def acisI_high_energy_combined_image(self):
+        if not hasattr(self, "_acisI_high_energy_combined_image"):
+            self._acisI_high_energy_combined_image = \
+                io.get_pixel_values(self.acisI_high_energy_combined_image_file)
+
+        return self._acisI_high_energy_combined_image
+
+    @property
+    def acisI_high_energy_combined_image_header(self):
+        if not hasattr(self, "_acisI_high_energy_combined_image_header"):
+            self._acisI_high_energy_combined_image_header = \
+                fits.open(self.acisI_high_energy_combined_image_file)[0].header
+        return self._acisI_high_energy_combined_image_header
+
 
     @property
     def acisI_high_energy_temp_image(self):
@@ -356,11 +409,18 @@ class Observation:
         ))
 
     @property
-    def backI_high_energy_combined_image(self):
+    def backI_high_energy_combined_image_file(self):
         return io.get_path("{combined_dir}/backI_hien_comb_img-{obsid}.fits".format(
             combined_dir=self.combined_directory,
             obsid=self.id
         ))
+
+    @property
+    def backI_high_energy_combined_image(self):
+        if not hasattr(self, "_backI_high_energy_combined_image"):
+            self._backI_high_energy_combined_image = \
+                io.get_pixel_values(self.backI_high_energy_combined_image_file)
+        return self._backI_high_energy_combined_image
 
     @property
     def backI_high_energy_temp_image(self):
@@ -378,13 +438,14 @@ class Observation:
 
     @property
     def scale_map_region_list(self):
-        region_list = []
-        with open(self.scale_map_region_list_filename, 'r') as f:
-            reader = csv.reader(f, delimiter='#')
-            region_list = list(reader)
+        if not hasattr(self, "_scale_map_region_list"):
+            region_list = []
+            with open(self.scale_map_region_list_filename, 'r') as f:
+                reader = csv.reader(f, delimiter='#')
+                region_list = list(reader)
+            self._scale_map_region_list = region_list
 
-        return region_list
-
+        return self._scale_map_region_list
 
     @scale_map_region_list.setter
     def scale_map_region_list(self, circle_list):
@@ -439,9 +500,12 @@ class Observation:
 
     @property
     def level_1_event_filename(self):
-        return io.get_filename_matching("{analysis_dir}/acis*evt1.fits".format(
-            analysis_dir=self.analysis_directory
-        ))[0]
+        return io.get_filename_matching("{secondary_dir}/acis*evt1.fits".format(
+            secondary_dir=self.secondary_directory
+        ))
+        # return io.get_filename_matching("{analysis_dir}/acis*evt1.fits".format(
+        #     analysis_dir=self.analysis_directory
+        # ))[0]
 
     @property
     def reprocessed_evt2_filename(self):
@@ -517,7 +581,9 @@ class Observation:
 
     @property
     def effective_data_time(self):
-        return np.load(self.effective_data_time_file)
+        if not hasattr(self, "_effective_data_time"):
+            self._effective_data_time = np.load(self.effective_data_time_file)
+        return self._effective_data_time
 
     @effective_data_time.setter
     def effective_data_time(self, effective_time):
@@ -533,7 +599,10 @@ class Observation:
 
     @property
     def effective_background_time(self):
-        return np.load(self.effective_background_time_file)
+        if not hasattr(self, "_effective_background_time"):
+            self._effective_background_time = np.load(self.effective_background_time_file)
+
+        return self._effective_background_time
 
     @effective_background_time.setter
     def effective_background_time(self, effective_time):
@@ -582,6 +651,12 @@ class Observation:
         return io.get_path("{analysis_dir}/acis_ccd{id}.fits".format(analysis_dir=self.analysis_directory,
                                                                      id=ccd_id))
 
+# ********************************************************************
+#
+#   ClusterObj
+#
+# ********************************************************************
+
 
 class ClusterObj:
     """Cluster objects are intended to be pythonic representations of
@@ -596,6 +671,7 @@ class ClusterObj:
                  redshift=0,
                  abundance=0,
                  last_step_completed=0,
+                 signal_to_noise=50
                  ):
         """
         Initialization method.
@@ -635,9 +711,7 @@ class ClusterObj:
         self._last_step_completed = last_step_completed
         self.observation_ids = observation_ids
         self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
-
-        #self.write_cluster_data()
-
+        self.signal_to_noise = signal_to_noise
 
     def write_cluster_data(self):
         """
@@ -684,7 +758,7 @@ class ClusterObj:
         self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
         print()
         get_fitting_values = \
-            io.check_yes_no("Enter values for fitting (nH, z, abundance) now? [y/n]")
+            io.check_yes_no("Enter values for fitting (nH, z, abundance, S/N) now? [y/n]")
         if get_fitting_values:
             self.hydrogen_column_density = io.get_user_input(
                 "Enter the hydrogen column density for {} (on order of 10^22, e.g. 0.052 for 5.2e20): ".format(self.name),
@@ -692,6 +766,8 @@ class ClusterObj:
             self.redshift = io.get_user_input("Enter the redshift of {}: ".format(self.name), "redshift")
 
             self.abundance = io.get_user_input("Enter the abundance: ", "abundance")
+            self.signal_to_noise = io.get_user_input("Enter the desired signal to noise ratio: ",
+                                                     "the signal to noise ratio")
         else:
             print("Before completing the ACB portion of the pypeline, you need "
                   "to edit the configuration file ({config}) "
@@ -700,6 +776,7 @@ class ClusterObj:
             self.hydrogen_column_density = "Update me! (on order of 10^22 e.g. 0.052 for 5.2e20)"
             self.redshift = "Update me! (e.g. 0.192)"
             self.abundance = "Update me! (e.g. 0.2)"
+            self.signal_to_noise = "Update me! (e.g. 50)"
         self._last_step_completed = 0
 
         return
@@ -720,12 +797,14 @@ Data Directory: {}
 Hydrogen Column Density: {}
 Redshift (z): {}
 Abundance: {}
+Signal to Noise Ratio: {}
 Last Step Completed: {}""".format(self.name,
                                   self.observation_ids,
                                   self.data_directory,
                                   self.hydrogen_column_density,
                                   self.redshift,
                                   self.abundance,
+                                  self.signal_to_noise,
                                   self._last_step_completed
                                   )
         return ret_str
@@ -737,6 +816,7 @@ Last Step Completed: {}""".format(self.name,
         yield 'hydrogen_column_density', str(self.hydrogen_column_density)
         yield 'redshift', str(self.redshift)
         yield 'abundance', str(self.abundance)
+        yield 'signal_to_noise', str(self.signal_to_noise)
         yield 'last_step_completed', str(self._last_step_completed)
 
         return
@@ -805,6 +885,13 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def combined_mask_data(self):
+        if not hasattr(self, "_combined_mask_data"):
+            self._combined_mask_data = io.get_pixel_values(self.combined_mask)
+
+        return self._combined_mask_data
+
+    @property
     def master_crop_file(self):
         return io.get_path("{combined_dir}/master_crop-ciaowcs.reg".format(
             combined_dir=self.combined_directory))
@@ -822,8 +909,8 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def wvt_label_map(self):
-        return io.get_path("{combined_dir}/{cluster}_wvt_label.fits".format(combined_dir=self.combined_dir,
-                                                                            cluster=self.cluster_name))
+        return io.get_path("{combined_dir}/{cluster}_wvt_label.fits".format(combined_dir=self.combined_directory,
+                                                                            cluster=self.name))
 
     @property
     def mach_map_filename(self):
@@ -864,13 +951,16 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def scale_map(self):
-        #return fits.open(self.scale_map_file)[0].data
-        return io.get_pixel_values(self.scale_map_file)
+        if not hasattr(self, "_scale_map"):
+            self._scale_map = io.get_pixel_values(self.scale_map_file)
+        return self._scale_map
 
     @property
     def scale_map_header(self):
-        from astropy.io import fits
-        return fits.open(self.scale_map_file)[0].header
+        if not hasattr(self, "_scale_map_header"):
+            self._scale_map_header = fits.open(self.scale_map_file)[0].header
+
+        return self._scale_map_header
 
     @property
     def scale_map_region_file(self):
@@ -881,7 +971,10 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def broad_flux_data(self):
-        return fits.open(self.broad_flux_filename)[0].data
+        if not hasattr(self, "_broad_flux_data"):
+            self._broad_flux_data = io.get_pixel_values(self.broad_flux_filename)
+
+        return self._broad_flux_data
 
     @property
     def broad_flux_filename(self):
@@ -892,19 +985,26 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def scale_map_region_index(self):
-        #return fits.open(self.scale_map_region_file)[0].data
-        return io.get_pixel_values(self.scale_map_region_file)
+        if not hasattr(self, "_scale_map_region_index"):
+            self._scale_map_region_index = io.get_pixel_values(self.scale_map_region_file)
+
+        return self._scale_map_region_index
 
     @property
     def number_of_regions(self):
-        return self.scale_map_mask[np.where(self.scale_map_mask == 1)].size
+        if not hasattr(self, "_number_of_regions"):
+            self._number_of_regions = self.scale_map_mask[np.where(self.scale_map_mask == 1)].size
+        return self._number_of_regions
 
 
     @property
     def scale_map_mask(self):
-        scale_map = self.scale_map
-        scale_map[np.nonzero(scale_map)] = 1
-        return scale_map
+        if not hasattr(self, "_scale_map_mask"):
+            scale_map = self.scale_map
+            scale_map[np.nonzero(scale_map)] = 1
+            self._scale_map_mask = scale_map
+
+        return self._scale_map_mask
 
 
     @property
@@ -947,8 +1047,10 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def combined_mask_region_index_map(self):
+        if not hasattr(self, "_combined_mask_region_index_map"):
+            self._combined_mask_region_index_map = io.get_pixel_values(self.region_to_index)
         #return fits.open(self.region_to_index)[0].data
-        return io.get_pixel_values(self.region_to_index)
+        return self._combined_mask_region_index_map
 
 
     @property
@@ -961,7 +1063,7 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def target_sn(self):
-        return 40
+        return self.signal_to_noise
 
     def spec_lis(self, region_number):
         return io.get_path("{super_comp_dir}/spec_{region_number}.lis".format(
@@ -1228,7 +1330,11 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def cropped_nosrc_xray_surface_brightness(self):
-        return io.get_pixel_values(self.xray_surface_brightness_nosrc_filename)
+        if not hasattr(self, "_cropped_nosrc_xray_surface_brightness"):
+            self._cropped_nosrc_xray_surface_brightness = \
+                io.get_pixel_values(self.xray_surface_brightness_nosrc_filename)
+
+        return self._cropped_nosrc_xray_surface_brightness
 
     @property
     def density_map_filename(self):
@@ -1357,10 +1463,9 @@ Last Step Completed: {}""".format(self.name,
             exposure_time = observation.exposure_time
             signal_to_noise = 10000 * (effective_data_time_for_region / exposure_time)
             if signal_to_noise >= self.signal_to_noise_threshold:
-                print('{region}:\tMet S/N threshold for {obsid}\t{s_to_n}'.format(
+                print('{region}:\tMet S/N threshold for {obsid}'.format(
                     obsid=observation.id,
-                    region=region_number,
-                    s_to_n=signal_to_noise
+                    region=region_number
                 ))
                 # extract cleaned spec & background
                 print("{region}:\tExtracting PI files for {obsid}".format(region=region_number,
@@ -1516,7 +1621,10 @@ def read_cluster_data(filename):
 
     cluster_config = configparser.ConfigParser()
 
-    cluster_config.read(filename)
+    try:
+        cluster_config.read(filename)
+    except TypeError:
+        print("Problem loading configuration file {}.".format(filename))
 
     try:
         cluster_dict = dict(cluster_config['cluster'])
@@ -1533,19 +1641,29 @@ def read_cluster_data(filename):
     cluster.redshift = cluster_dict['redshift']
     cluster.abundance = cluster_dict['abundance']
     cluster.last_step_completed = cluster_dict['last_step_completed']
+    try:
+        cluster.signal_to_noise = cluster_dict['signal_to_noise']
+    except KeyError:
+        cluster.signal_to_noise = 50
 
     cluster.observations = [Observation(obsid=x, cluster=cluster) for x in cluster.observation_ids]
 
     return cluster
 
 
+def load_cluster(cluster_name: str):
+    if io.file_exists(cluster_name):
+        return read_cluster_data(cluster_name)
+
+    config_file = get_cluster_config(cluster_name)
+    return read_cluster_data(config_file)
+
+
 def get_cluster_config(clstr_name):
     data_dir = config.data_directory()
-    config_file = io.get_filename_matching('{0}{1}/{1}_pypeline_config.ini'.format(data_dir, clstr_name))
+    config_file = io.get_filename_matching('{0}/{1}/{1}_pypeline_config.ini'.format(data_dir, clstr_name))
 
     if len(config_file) >= 1:
         return config_file[-1]
     else:
         return None
-
-

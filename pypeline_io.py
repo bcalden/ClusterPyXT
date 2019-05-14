@@ -4,7 +4,6 @@ import shutil
 import gzip
 import glob
 import re
-import pycrates as pc
 import sys
 import csv
 import matplotlib.pyplot as plt
@@ -75,8 +74,7 @@ def clear_screen():
 
 
 def get_pixel_values(filename):
-    image = pc.read_file(filename)
-    return pc.copy_piximgvals(image) # returns a numpy array
+    return fits.open(filename)[0].data
 
 
 def remove_directory(directory):
@@ -304,7 +302,10 @@ def file_size(filename):
 
 
 def delete(filename):
-    os.remove(filename)
+    try:
+        os.remove(filename)
+    except FileNotFoundError:
+        print("{} not found. Probably already deleted.".format(filename))
 
 
 def delete_if_exists(filename):

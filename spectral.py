@@ -6,7 +6,6 @@ import time
 import pypeline_io as io
 
 
-
 def get_arguments():
     help_str = """
     pypeline help string
@@ -86,7 +85,7 @@ def print_iteration_string(start_time, iteration, total):
 if __name__ == '__main__':
     args = get_arguments()
     if args.cluster_config is not None:
-        clstr = cluster.read_cluster_data(args.cluster_config)
+        clstr = cluster.load_cluster(args.cluster_config)
         if args.cont:
             print("Continuing spectral fits")
             regions = clstr.unfinished_regions_to_fit(args.resolution)
