@@ -149,7 +149,7 @@ def ciao_back(cluster, overwrite=False):
     print("Running ciao_back on {}.".format(cluster.name))
 
     for observation in cluster.observations:
-        pcad_file = make_pcad_lis(cluster, observation.id)
+        pcad_file = make_pcad_lis(observation)
         backI_lis = []
         backS_lis = []
         analysis_path = observation.analysis_directory
@@ -203,7 +203,7 @@ def ciao_back(cluster, overwrite=False):
             )
             rt.reproject_events(infile=infile,
                                 outfile=outfile,
-                                aspect="{pcad_file}".format(pcad_file=pcad),
+                                aspect="@{pcad_file}".format(pcad_file=pcad),
                                 match=match,
                                 random=0,
                                 clobber=True)
@@ -313,6 +313,8 @@ def ccd_sort(cluster):
         )
         detnums = [int(x) for x in detname.split('-')[-1]]
 
+        io.make_directory(observation.analysis_directory)
+
         for acis_id in detnums:
             print("{cluster}/{observation}: Making level 2 event file for ACIS Chip id: {acis_id}".format(
                 cluster=cluster.name,
@@ -380,22 +382,22 @@ def actually_merge_observations_from(cluster):
     merged_observations = []
 
     for observation in cluster.observations:
-        merged_observations.append(observation.reprocessed_evt2_filename)
+        merged_observations.append(observation.ccd_filtered_reprocessed_evt2_filename)
 
     merged_lis = "{}/merged_obs.lis".format(merged_directory)
     io.write_contents_to_file("\n".join(merged_observations), merged_lis, binary=False)
     outroot = io.get_path("{}/{}/".format(cluster.directory, cluster.name))
 
-    infile = "@{infile}[ccd_id=0:3]".format(infile=merged_lis) # for ACIS-I
-    # infile = "@{infile}".format(infile=merged_lis) # for ACIS-I & ACIS-S
+    #infile = "@{infile}[ccd_id=0:3]".format(infile=merged_lis) # for ACIS-I
+    infile = "@{infile}".format(infile=merged_lis) # for ACIS-I & ACIS-S
 
-    xygrid = "1500:6500:4,1500:6500:4"
+    #xygrid = "1500:6500:4,1500:6500:4"
 
     if len(merged_observations) == 1:
         rt.fluximage.punlearn()
         rt.fluximage(infile=infile,
                      outroot=outroot,
-                     xygrid=xygrid,
+                     #xygrid=xygrid,
                      clobber=True)
         print("Only single observation, flux image created.")
 
@@ -407,6 +409,39 @@ def actually_merge_observations_from(cluster):
                      clobber=True,
                      parallel=True,
                      nproc=12)
+
+
+def make_point_spread_function_map(observation):
+    rt.mkpsfmap.punlearn()
+    rt.mkpsfmap(infile=observation.broad_threshold_image_filename,
+                outfile=observation.point_spread_function_map_filename,
+                energy=1,
+                ecf=0.1,
+                clobber=True)
+
+
+def wav_detect(observation):
+    rt.wavdetect.punlearn()
+    rt.wavdetect(infile=observation.broad_threshold_image_filename,
+                 outfile=observation.source_map_filename,
+                 scellfile=observation.source_cell_map_filename,
+                 imagefile=observation.source_image_filename,
+                 defnbkgfile=observation.normalized_background_without_sources_filename,
+                 scales="2.0 4.0",
+                 psffile=observation.point_spread_function_map_filename,
+                 regfile=observation.source_region_filename,
+                 clobber=True)
+
+
+def merge_source_files(cluster: cluster.ClusterObj):
+    region_files = [observation.source_region_filename for observation in cluster.observations]
+    io.merge_region_files(region_files, cluster.sources_file)
+
+def find_sources(cluster: cluster.ClusterObj):
+    for observation in cluster.observations:
+        make_point_spread_function_map(observation)
+        wav_detect(observation)
+    merge_source_files(cluster)
 
 
 def ciao_hiE_sources(observation):
@@ -426,7 +461,7 @@ def ciao_hiE_sources(observation):
 # final part of runpipe1
 def merge_observations(cluster):
     prepare_to_merge_observations_from(cluster)
-    unzip_data_from(cluster)
+    #unzip_data_from(cluster)
     #reprocess_cluster(cluster)
 
     reprocess_cluster_multiobs(cluster) #multiobs test
@@ -646,9 +681,9 @@ def create_global_response_file_for(observation: cluster.Observation):
 
     rt.acis_set_ardlib(badpixfile=bad_pixel_file)
 
-    mask_file = io.get_filename_matching("{}/*msk1.fits".format(obs_analysis_dir))
+    mask_file = print(observation.mask_file)
 
-    make_pcad_lis(observation.cluster, observation.id)
+    make_pcad_lis(observation)
 
     infile = "{}[sky=region({})]".format(clean, observation.response_file_region_covering_ccds)
     outroot = "{}/acisI_region_0".format(global_response_dir)
@@ -693,12 +728,11 @@ def create_global_response_file_for(observation: cluster.Observation):
     io.copy(redist_matrix_file, observation.redistribution_matrix_file)
 
 
-def make_pcad_lis(cluster, obsid):
-    analysis_dir = cluster.obs_analysis_directory(obsid)
-    search_str = "{}/*asol1.fits".format(analysis_dir)
+def make_pcad_lis(observation: cluster.Observation):
+    search_str = "{}/*asol1.fits".format(observation.reprocessing_directory)
     pcad_files = io.get_filename_matching(search_str)
     pcad_list_string = "\n".join(pcad_files)
-    pcad_filename = "{}/pcad_asol1.lis".format(analysis_dir)
+    pcad_filename = "{}/pcad_asol1.lis".format(observation.analysis_directory)
 
     io.write_contents_to_file(pcad_list_string, pcad_filename, binary=False)
 
@@ -722,7 +756,7 @@ def make_response_files(cluster):
         create_global_response_file_for(observation)
 
 
-def make_mask_file(observation):
+def make_mask_file(observation: cluster.Observation):
     from astropy.io import fits
     print("Creating an image mask for {}.".format(observation.id))
 
@@ -738,10 +772,18 @@ def make_mask_file(observation):
     mask.writeto(mask_filename, overwrite=True)
 
     rt.dmcopy.punlearn()
-    # infile = "{mask_filename}[sky=region({fov_file})][opt full]".format( # for ACIS-I & ACIS-S
-    infile = "{mask_filename}[sky=region({fov_file}[ccd_id=0:3])][opt full]".format(  # for ACIS-I
+    # need to check type of observation, S or I, and then generate a new string with the approriate ccd filtering
+
+    if observation.acis_type == 0: # ACIS-I
+        ccd_filter = "0:3"
+    else:
+        ccd_filter = "4:9"
+
+    #infile = "{mask_filename}[sky=region({fov_file})][opt full]".format( # for ACIS-I & ACIS-S
+    infile = "{mask_filename}[sky=region({fov_file}[ccd_id={ccd_filter}])][opt full]".format(
         mask_filename=mask_filename,
-        fov_file=observation.fov_file
+        fov_file=observation.fov_file,
+        ccd_filter=ccd_filter
     )
     outfile = observation.acisI_combined_mask_file
     clobber = True
@@ -1059,9 +1101,9 @@ def spec_extract(observation, region_file, region_num, min_counts):
                    asp='@{}'.format(observation.pcad_asol),
                    combine='no',
                    mskfile=observation.acis_mask_sc,
-                   #                   bkgfile=observation.back,
+                   bkgfile=observation.back,
                    bkgresp="no",
-                   badpixfile=observation.bad_pixel_file,
+                   badpixfile=observation.reprocessed_bad_pixel_filename,
                    binspec=1,
                    clobber=True
                    )

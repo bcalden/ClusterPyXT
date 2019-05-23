@@ -93,6 +93,12 @@ class Observation:
                 acis_I_ccds.append(ccd)
             else:
                 acis_S_ccds.append(ccd)
+        if len(acis_I_ccds) > len(acis_S_ccds):
+            self.acis_type = 0 # ACIS-I
+            self.ccd_filter = "0:3"
+        else:
+            self.acis_type = 1 # ACIS-S
+            self.ccd_filter = "4:9"
         return acis_I_ccds, acis_S_ccds
 
     def effective_data_time_for_region(self, region_number):
@@ -184,6 +190,13 @@ class Observation:
         return io.get_path("{cluster_dir}/{obsid}/".format(cluster_dir=self.cluster.directory,
                                                            obsid=self.id))
 
+    @property
+    def ccd_filtered_reprocessed_evt2_filename(self):
+        return "{evt2}[ccd_id={ccd_filter}]".format(
+            evt2=self.reprocessed_evt2_filename,
+            ccd_filter=self.ccd_filter
+        )
+
     @property  # refactor so exclude points to the content of the file, not the file
     def exclude(self):
         return self.cluster.exclude_file
@@ -209,6 +222,10 @@ class Observation:
         return io.get_path("{analysis_dir}/acisI_region_0.reg".format(
             analysis_dir=self.analysis_directory
         ))
+
+    @property
+    def mask_file(self):
+        return io.get_filename_matching("{}/*msk1.fits".format(self.reprocessing_directory))[0]
 
     @property
     def analysis_directory(self):
@@ -269,7 +286,7 @@ class Observation:
     @property
     def fov_file(self):
         return io.get_filename_matching("{}/*{}*fov1.fits".format(
-            self.analysis_directory,
+            self.reprocessing_directory,
             self.id
         ))[0]
 
@@ -453,6 +470,56 @@ class Observation:
             writer = csv.writer(f, delimiter='#')
             writer.writerows(circle_list)
 
+    @property
+    def point_spread_function_map_filename(self):
+        return io.get_path("{cluster_dir}/{name}_{obsid}_psfmap.fits".format(
+            cluster_dir=self.cluster.directory,
+            name=self.cluster.name,
+            obsid=self.id
+        ))
+
+    @property
+    def broad_threshold_image_filename(self):
+        return io.get_path("{cluster_dir}/{name}_{obsid}_broad_thresh.img".format(
+            cluster_dir=self.cluster.directory,
+            name=self.cluster.name,
+            obsid=self.id
+        ))
+
+    @property
+    def source_map_filename(self):
+        return io.get_path("{obs_dir}/{obsid}_source_events.fits".format(
+            obs_dir=self.directory,
+            obsid=self.id
+        ))
+
+    @property
+    def source_image_filename(self):
+        return io.get_path("{obs_dir}/{obsid}_image.fits".format(
+            obs_dir=self.directory,
+            obsid=self.id
+        ))
+
+    @property
+    def normalized_background_without_sources_filename(self):
+        return io.get_path("{obs_dir}/{obsid}_nbgd.fits".format(
+            obs_dir=self.directory,
+            obsid=self.id
+        ))
+
+    @property
+    def source_cell_map_filename(self):
+        return io.get_path("{obs_dir}/{obsid}_source_cell.fits".format(
+            obs_dir=self.directory,
+            obsid=self.id
+        ))
+
+    @property
+    def source_region_filename(self):
+        return io.get_path("{obs_dir}/{obsid}_sources.reg".format(
+            obs_dir=self.directory,
+            obsid=self.id
+        ))
 
     @property
     def bad_pixel_file(self):
@@ -559,8 +626,8 @@ class Observation:
 
     @property
     def acis_mask(self):
-        filename = io.get_filename_matching("{analysis_dir}/*_msk1.fits".format(
-            analysis_dir=self.analysis_directory
+        filename = io.get_filename_matching("{repro_dir}/*_msk1.fits".format(
+            repro_dir=self.reprocessing_directory
         ))[0]
         return filename
 
@@ -711,7 +778,7 @@ class ClusterObj:
         self._last_step_completed = last_step_completed
         self.observation_ids = observation_ids
         self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
-        self.signal_to_noise = signal_to_noise
+        self.signal_to_noise = float(signal_to_noise)
 
     def write_cluster_data(self):
         """
@@ -885,6 +952,13 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def combined_mask_header(self):
+        if not hasattr(self, "_combined_mask_header"):
+            self._combined_mask_header = fits.open(self.combined_mask)[0].header
+
+        return self._combined_mask_header
+
+    @property
     def combined_mask_data(self):
         if not hasattr(self, "_combined_mask_data"):
             self._combined_mask_data = io.get_pixel_values(self.combined_mask)
@@ -941,6 +1015,13 @@ Last Step Completed: {}""".format(self.name,
     @property
     def acb_dir(self):
         return io.get_path("{dir}/acb/".format(dir=self.directory))
+
+    @property
+    def scale_map_csv_filename(self):
+        return io.get_path("{acb_dir}/{cluster_name}_scale_map_values.csv".format(
+            acb_dir=self.acb_dir,
+            cluster_name=self.name
+        ))
 
     @property
     def scale_map_file(self):
@@ -1063,7 +1144,7 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def target_sn(self):
-        return self.signal_to_noise
+        return float(self.signal_to_noise)
 
     def spec_lis(self, region_number):
         return io.get_path("{super_comp_dir}/spec_{region_number}.lis".format(
@@ -1184,6 +1265,17 @@ Last Step Completed: {}""".format(self.name,
             writer = csv.writer(f)
             writer.writerow(fieldnames)
 
+    def initialize_scale_map_csv(self):
+        with open(self.scale_map_csv_filename, 'w') as f:
+            fieldnames = ['x', 'y', 'radius', 'signal_to_noise']
+            writer = csv.writer(f)
+            writer.writerow(fieldnames)
+
+    def write_scale_map_radius(self, x=0, y=0, radius=0, signal_to_noise=0):
+        with open(self.scale_map_csv_filename, 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow([x, y, radius, signal_to_noise])
+
     def write_best_fits_to_file(self, region=0,
                            T=0.0, T_err_plus=0.0,
                            T_err_minus=0.0, norm=0.0,
@@ -1254,6 +1346,45 @@ Last Step Completed: {}""".format(self.name,
                 temps['temp_err_plus'].append(float(row['T_err_+']))
                 temps['temp_err_minus'].append(float(row['T_err_-']))
         return temps
+
+    @property
+    def scale_map_csv_values(self):
+        scale_map_values = {'x': [],
+                            'y': [],
+                            'radius': [],
+                            'signal_to_noise': []
+                            }
+        with open(self.scale_map_csv_filename, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                scale_map_values['x'].append(int(row['x']))
+                scale_map_values['y'].append(int(row['y']))
+                scale_map_values['radius'].append(float(row['radius']))
+                scale_map_values['signal_to_noise'].append(float(row['signal_to_noise']))
+
+        return scale_map_values
+
+    @property
+    def write_scale_map_csv_to_fits(self):
+        scale_map_values = self.scale_map_csv_values
+
+        scale_map = np.zeros(self.combined_mask_data.shape)
+        s_to_n_map = np.zeros(self.combined_mask_data.shape)
+
+        for i in range(len(scale_map_values['x'])):
+            x = scale_map_values['x'][i]
+            y = scale_map_values['y'][i]
+            radius = scale_map_values['radius'][i]
+            s_to_n = scale_map_values['signal_to_noise'][i]
+
+            scale_map[x,y] = radius
+            s_to_n_map[x,y] = s_to_n
+
+        header = self.combined_mask_header
+
+        io.write_numpy_array_to_fits(scale_map, self.scale_map_file, header)
+        io.write_numpy_array_to_fits(s_to_n_map, self.sn_map, header)
+
 
     @property
     def average_temperature_fits(self):

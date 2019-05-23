@@ -5,7 +5,7 @@ import time
 import argparse
 import data_operations as do
 from astropy.io import fits
-
+import multiprocessing as mp
 
 def get_arguments():
     help_str = """
@@ -179,6 +179,137 @@ def _update_effective_exposure_time(current_region, number_regions, time_elapsed
     io.flush()
 
 
+def create_scale_map_in_parallel(cluster: cluster.ClusterObj):
+    target_sn = cluster.signal_to_noise
+
+    mask = cluster.combined_mask_data
+
+    cts_image = np.zeros(mask.shape)
+    back_rescale = np.zeros(mask.shape)
+
+    for obs in cluster.observations:
+        cts_image += obs.acisI_combined_image
+        t_obs = obs.acisI_combined_image_header['EXPOSURE']
+
+        t_back = obs.backI_combined_image_header['EXPOSURE']
+
+        back_rescale += (t_obs / t_back) * obs.backI_combined_image
+
+    signal = cts_image - back_rescale
+
+    signal[np.where(signal < 0)] = 0
+
+    sz = signal.shape
+    max_x = sz[0]
+    max_y = sz[1]
+
+    io.make_directory(cluster.acb_dir)
+    cluster.initialize_scale_map_csv()
+
+    pix_x = np.zeros(sz)
+    pix_y = np.zeros(sz)
+
+    for j in range(max_y):
+        for i in range(max_x):
+            pix_x[i, j] = float(i)
+            pix_y[i, j] = float(j)
+
+    num_pix = max_x * max_y
+
+    start_time = time.time()
+
+    indeces = np.vstack(np.where(mask==1)).T
+    num_index_lists = (indeces.shape[0] // mp.cpu_count())
+    index_lists = np.array_split(indeces, num_index_lists)
+
+    num_iterations = len(index_lists)
+
+    for i, index_list in enumerate(index_lists):
+        if i % 100 == 0:
+            print("{} of {} iterations complete.".format(i, num_iterations))
+
+        processes = [mp.Process(target=calculate_radius_at_index,
+                                args=(index, cluster, pix_x, pix_y, cts_image, num_pix, back_rescale))
+                     for index in index_list]
+
+        for process in processes:
+            process.start()
+
+        for process in processes:
+            process.join()
+
+    cluster.write_scale_map_csv_to_fits()
+
+    end_time = time.time()
+    print("Time elapsed {:0.2f} seconds.".format(end_time - start_time))
+
+
+def calculate_radius_at_index(index, cluster: cluster.ClusterObj,
+                              pix_x: np.ndarray, pix_y: np.ndarray,
+                              counts_image: np.ndarray, num_pix: int,
+                              back_rescale: np.ndarray):
+    x_index = index[0]
+    y_index = index[1]
+    delta_x = x_index-pix_x
+    delta_y = y_index-pix_y
+
+    radius = np.sqrt(delta_x**2 + delta_y**2)
+
+    dr = 24.0
+    min_dr = 0.125
+    hilo = 0
+    niter = 0
+    max_radius = 100
+    r = max_radius + 1 # potentially a IDL vestige
+    counter = 0
+
+    signal_to_noise = 0
+    scale_map_radius = 0
+
+    while (dr > min_dr) and (niter < 100):
+        indeces = np.where(radius <= r)
+        counts_map_total = np.sum(counts_image[indeces])
+
+        if counts_map_total == 0:
+            counter += 1
+            _source_free_region(counter, x_index*y_index, num_pix)
+            sn_val = 0
+            hilo = -1
+        else:
+            backmap_tot = np.sum(back_rescale[indeces])
+            signal_total = counts_map_total - backmap_tot
+            noise_total = np.sqrt(counts_map_total + backmap_tot)
+            sn_val = signal_total / noise_total
+        if float(sn_val) < float(cluster.target_sn):
+            if r > max_radius:
+                r = max_radius + 1
+
+                niter = 110
+                # exit by setting niter=110.
+                # (niter=100 means niter hit max niter.
+                # niter=110 means radius hit max radius)
+
+                signal_to_noise = 0
+                scale_map_radius = 0
+            else:
+                if hilo == 1:
+                    dr *= 0.5
+                r += dr
+                hilo = -1
+        else:
+            snmapval = signal_to_noise
+            if (sn_val < snmapval) or (snmapval == 0.0):
+                signal_to_noise = sn_val
+                scale_map_radius = r
+            if hilo == -1:
+                dr *= 0.5
+            r -= dr
+            hilo = 1
+
+        niter += 1
+
+    cluster.write_scale_map_radius(x_index, y_index, scale_map_radius, signal_to_noise)
+
 
 def create_scale_map(cluster):
     target_sn = cluster.signal_to_noise
@@ -201,8 +332,8 @@ def create_scale_map(cluster):
     signal[np.where(signal < 0)] = 0
 
     sz = signal.shape
-    nx = sz[0]
-    ny = sz[1]
+    max_x = sz[0]
+    max_y = sz[1]
 
     # radius_map = np.zeros(sz)
 
@@ -212,35 +343,28 @@ def create_scale_map(cluster):
     pix_x = np.zeros(sz)
     pix_y = np.zeros(sz)
 
-    for j in range(ny):
-        for i in range(nx):
+    for j in range(max_y):
+        for i in range(max_x):
             pix_x[i, j] = float(i)
             pix_y[i, j] = float(j)
-
-    bpix_x = 0
-    bpix_y = 0
-    epix_x = nx
-    epix_y = ny
 
     max_radius = 100
     r = max_radius + 1  # +1 may be a remnant of IDL indexing
     #dr = 24.0
     min_dr = 0.125
 
-    num_pix = nx*ny
+    num_pix = max_x * max_y
 
-    ci=0
-    counter=0
+    ci = 0
+    counter = 0
     start_time = time.time()
 
-    # output_queue = mp.Queue()
 
-
-    for cj in range(bpix_y,epix_y):
+    for cj in range(0, max_y):
         #print("{} out of {} pixels complete.".format(cj*ci, num_pix))
         _update_completed_things(cj*ci, num_pix, "pixels")
-        for ci in range(bpix_x, epix_x):
-            if mask[ci,cj] == 1:
+        for ci in range(0, max_x):
+            if mask[ci, cj] == 1:
                 delta_x = ci-pix_x
                 delta_y = cj-pix_y
 
@@ -256,7 +380,7 @@ def create_scale_map(cluster):
                     cts_map_total = np.sum(cts_image[indeces])
 
                     if cts_map_total == 0:
-                        counter+=1
+                        counter += 1
                         _source_free_region(counter, ci*cj, num_pix)
                         sn_val = 0
                         hilo = -1
@@ -265,7 +389,7 @@ def create_scale_map(cluster):
                         signal_total = cts_map_total - backmap_tot
                         noise_total = np.sqrt(cts_map_total+backmap_tot)
                         sn_val = signal_total/noise_total
-                    if sn_val < target_sn:
+                    if float(sn_val) < float(target_sn):
                         if r > max_radius:
                             r = max_radius + 1
 
@@ -282,10 +406,10 @@ def create_scale_map(cluster):
                             r += dr
                             hilo = -1
                     else:
-                        snmapval = sn_map[ci,cj]
+                        snmapval = sn_map[ci, cj]
                         if (sn_val < snmapval) or (snmapval == 0.0):
                             sn_map[ci,cj] = sn_val
-                            scale_map[ci,cj] = r
+                            scale_map[ci, cj] = r
                         if hilo == -1:
                             dr *= 0.5
                         r -= dr
@@ -592,7 +716,7 @@ def fitting_preparation(clstr, args=None):
         resolution = args.resolution
 
     print("Creating the scale map.")
-    create_scale_map(clstr)
+    create_scale_map_in_parallel(clstr)
 
     print("Creating the region index map.")
     create_scale_map_region_index(clstr)
@@ -670,6 +794,7 @@ def make_pressure_map(clstr: cluster.ClusterObj):
 
 if __name__ == '__main__':
     args, parser = get_arguments()
+
     if args.cluster_config is not None:
         clstr = cluster.load_cluster(args.cluster_config)
 

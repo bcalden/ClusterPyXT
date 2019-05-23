@@ -47,6 +47,9 @@ def process_commandline_arguments(cluster_obj):
             else:
                 print("Error finding cluster configuration file. Try passing the full path to the file.")
                 return
+        if args.find_sources:
+            ciao.find_sources(cluster_obj)
+
     if args.cont:
         if cluster_obj is None:
             cluster_obj = config.current_cluster()
@@ -84,6 +87,8 @@ def get_arguments():
     parser.add_argument('--cluster_name', '-n', dest='name', action='store', default=None)
     parser.add_argument('--obsids', dest='obsids', action='store', nargs='+', default=None)
     parser.add_argument('--abundance', dest='abundance', action='store', default=None)
+    parser.add_argument('--find_sources', dest='find_sources', action='store', default=False)
+
     args = parser.parse_args()
 
     # logger.debug("Finished getting commandline arguments")

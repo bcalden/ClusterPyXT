@@ -392,3 +392,10 @@ def fits_to_image(fits_file, output_filename):
     fits_file = fits.open(fits_file)
     data = fits_file[0].data
     write_numpy_array_to_image(data, output_filename)
+
+def merge_region_files(list_of_region_files, output_filename):
+    contents = []
+    for filename in list_of_region_files:
+        contents.append(read_contents_of_file(filename))
+    region_string = "\n".join(contents)
+    write_contents_to_file(region_string, output_filename, binary=False)
