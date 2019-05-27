@@ -35,6 +35,7 @@ def get_arguments():
     parser.add_argument('--make_fitting_commands', dest='commands', action='store_true', default=False)
     parser.add_argument('--eff_times_to_fits', dest='eff_times_fits', action='store_true', default=False)
     parser.add_argument('--make_pressure_map', dest='pressure', action='store_true', default=False)
+    parser.add_argument('--make_entropy_map', dest='entropy', action='store_true', default=False)
     parser.add_argument('--shock_finder', dest='shock', action='store_true', default=False)
     args = parser.parse_args()
 
@@ -725,6 +726,21 @@ def make_pressure_map(clstr: cluster.ClusterObj):
 
     fits.writeto(clstr.pressure_map_filename, norm_P, header=header, overwrite=True)
 
+def make_entropy_map(clstr: cluster.ClusterObj):
+
+    from astropy.io import fits
+    n = make_density_map(clstr)
+    T = clstr.temperature_map
+    header = clstr.temperature_map_header
+
+    n, T = do.make_sizes_match(n, T)
+
+    K = T*(n**(-2./3.))
+
+    norm_K = do.normalize_data(K)
+
+    fits.writeto(clstr.entropy_map_filename, norm_K, header=header, overwrite=True)    
+    
 
 if __name__ == '__main__':
     args, parser = get_arguments()
