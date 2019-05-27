@@ -1180,6 +1180,13 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def entropy_map_filename(self):
+        return io.get_path('{output_dir}/{name}_entropy.fits'.format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))    
+    
+    @property
     def temperature_map_filename(self):
         return io.get_path('{output_dir}/{cluster_name}_temperature_map.fits'.format(
             output_dir=self.output_dir,
