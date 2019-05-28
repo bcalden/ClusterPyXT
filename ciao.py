@@ -59,10 +59,12 @@ def prepare_to_merge_observations_from(cluster_obj):
 
     for observation in cluster_obj.observations:
         print("Preparing observation: {id}".format(id=observation.id))
-        io.make_directory(observation.analysis_directory)
-        io.make_directory(observation.reprocessing_directory)
-        io.copytree(src=observation.primary_directory, dst=observation.analysis_directory)
-        io.copytree(src=observation.secondary_directory, dst=observation.analysis_directory)
+        #io.make_directory(observation.analysis_directory)
+        #io.make_directory(observation.reprocessing_directory)
+        #io.copytree(src=observation.primary_directory, dst=observation.analysis_directory)
+        #io.remove_directory(observation.primary_directory)
+        #io.copytree(src=observation.secondary_directory, dst=observation.analysis_directory)
+        #io.remove_directory(observation.secondary_directory)
 
     return
 
@@ -147,7 +149,7 @@ def ciao_back(cluster, overwrite=False):
     print("Running ciao_back on {}.".format(cluster.name))
 
     for observation in cluster.observations:
-        pcad_file = make_pcad_lis(cluster, observation.id)
+        pcad_file = make_pcad_lis(observation)
         backI_lis = []
         backS_lis = []
         analysis_path = observation.analysis_directory
@@ -201,13 +203,13 @@ def ciao_back(cluster, overwrite=False):
             )
             rt.reproject_events(infile=infile,
                                 outfile=outfile,
-                                aspect="{pcad_file}".format(pcad_file=pcad),
+                                aspect="@{pcad_file}".format(pcad_file=pcad_file),
                                 match=match,
                                 random=0,
                                 clobber=True)
 
             back_reproject = outfile
-            datamode = rt.dmkeypar(infile=io.get_filename_matching(io.get_path("{}/acis*evt1*.fits".format(analysis_path))),
+            datamode = rt.dmkeypar(infile=observation.level_1_event_filename,
                                    keyword="DATAMODE")
             if datamode == "VFAINT":
                 print("VFAINT Mode, resetting setting status bits")
@@ -228,6 +230,14 @@ def ciao_back(cluster, overwrite=False):
         io.write_contents_to_file("\n".join(backS_lis), io.get_path("{}/backS.lis".format(analysis_path)),
                                   binary=False)
         io.write_contents_to_file("\n".join(merged_back_list), observation.merged_back_lis, binary=False)
+
+    return
+
+
+def reprocess_cluster_multiobs(cluster: cluster.ClusterObj):
+    print("Reprocessing {}.".format(cluster.name))
+    result = chandra_repro_multi(cluster)
+    print(result)
 
     return
 
@@ -278,6 +288,13 @@ def chandra_repro(observation: cluster.Observation):
 
     return output
 
+def chandra_repro_multi(cluster: cluster.ClusterObj):
+    rt.chandra_repro.punlearn()
+    os.chdir(cluster.directory)
+    obsids = ",".join(cluster.observation_ids)
+    output = rt.chandra_repro(indir=obsids, outdir="", set_ardlib=False, clobber=True, verbose=1)
+
+    return output
 
 def ccd_sort(cluster):
     print("Running ccd_sort on {}.".format(cluster.name))
@@ -296,6 +313,8 @@ def ccd_sort(cluster):
         )
         detnums = [int(x) for x in detname.split('-')[-1]]
 
+        io.make_directory(observation.analysis_directory)
+
         for acis_id in detnums:
             print("{cluster}/{observation}: Making level 2 event file for ACIS Chip id: {acis_id}".format(
                 cluster=cluster.name,
@@ -305,7 +324,7 @@ def ccd_sort(cluster):
                 rt.dmcopy(infile=observation.reprocessed_evt2_for_ccd(acis_id),
                           outfile=observation.acis_ccd(acis_id),
                           clobber=True)
-            except OSError:
+            except OSError as oserr:
                 print("Error generating event files for each CCD.")
                 print("Observation: {}\t CCD: {}".format(observation.id, acis_id))
                 print("File: {}".format(observation.reprocessed_evt2_for_ccd(acis_id)))
@@ -322,6 +341,7 @@ def ccd_sort(cluster):
 
         os.chdir(observation.analysis_directory)
         acisI_list = io.get_filename_matching("acis_ccd[0-3].fits")
+        #acisS_list = io.get_filename_matching("acis_ccd[4-8].fits")
         for i in range(len(acisI_list)):
             acisI_list[i] = io.get_path("{obs_analysis_dir}/{file}".format(obs_analysis_dir=observation.analysis_directory,
                                                                            file=acisI_list[i]))
@@ -339,8 +359,8 @@ def merge_data_and_backgrounds(cluster, acis_list):
                outfile=merged_file,
                clobber=True)
 
-    detname = rt.dmkeypar(infile=io.get_filename_matching("acis*evt1.fits"),
-                          keyword="DETNAM")
+    #detname = rt.dmkeypar(infile=io.get_filename_matching("acis*evt1.fits"),
+    #                      keyword="DETNAM")
     # acisI3 = detname.find("3")
     # acisS3 = detname.find("7")
 
@@ -362,22 +382,22 @@ def actually_merge_observations_from(cluster):
     merged_observations = []
 
     for observation in cluster.observations:
-        merged_observations.append(observation.reprocessed_evt2_filename)
+        merged_observations.append(observation.ccd_filtered_reprocessed_evt2_filename)
 
     merged_lis = "{}/merged_obs.lis".format(merged_directory)
     io.write_contents_to_file("\n".join(merged_observations), merged_lis, binary=False)
-    outroot = io.get_path("{}/{}".format(cluster.directory, cluster.name))
+    outroot = io.get_path("{}/{}/".format(cluster.directory, cluster.name))
 
-    infile = "@{infile}[ccd_id=0:3]".format(infile=merged_lis) # for ACIS-I
-    # infile = "@{infile}".format(infile=merged_lis) # for ACIS-I & ACIS-S
+    #infile = "@{infile}[ccd_id=0:3]".format(infile=merged_lis) # for ACIS-I
+    infile = "@{infile}".format(infile=merged_lis) # for ACIS-I & ACIS-S
 
-    xygrid = "1500:6500:4,1500:6500:4"
+    #xygrid = "1500:6500:4,1500:6500:4"
 
     if len(merged_observations) == 1:
         rt.fluximage.punlearn()
         rt.fluximage(infile=infile,
                      outroot=outroot,
-                     xygrid=xygrid,
+                     #xygrid=xygrid,
                      clobber=True)
         print("Only single observation, flux image created.")
 
@@ -385,10 +405,43 @@ def actually_merge_observations_from(cluster):
         rt.merge_obs.punlearn()
         rt.merge_obs(infiles=infile,
                      outroot=outroot,
-                     xygrid=xygrid,
+                     #xygrid=xygrid,
                      clobber=True,
                      parallel=True,
                      nproc=12)
+
+
+def make_point_spread_function_map(observation):
+    rt.mkpsfmap.punlearn()
+    rt.mkpsfmap(infile=observation.broad_threshold_image_filename,
+                outfile=observation.point_spread_function_map_filename,
+                energy=8,
+                ecf=0.9,
+                clobber=True)
+
+
+def wav_detect(observation):
+    rt.wavdetect.punlearn()
+    rt.wavdetect(infile=observation.broad_threshold_image_filename,
+                 outfile=observation.source_map_filename,
+                 scellfile=observation.source_cell_map_filename,
+                 imagefile=observation.source_image_filename,
+                 defnbkgfile=observation.normalized_background_without_sources_filename,
+                 scales="2.0 4.0",
+                 psffile=observation.point_spread_function_map_filename,
+                 regfile=observation.source_region_filename,
+                 clobber=True)
+
+
+def merge_source_files(cluster: cluster.ClusterObj):
+    region_files = [observation.source_region_filename for observation in cluster.observations]
+    io.merge_region_files(region_files, cluster.sources_file)
+
+def find_sources(cluster: cluster.ClusterObj):
+    for observation in cluster.observations:
+        make_point_spread_function_map(observation)
+        wav_detect(observation)
+    merge_source_files(cluster)
 
 
 def ciao_hiE_sources(observation):
@@ -408,9 +461,10 @@ def ciao_hiE_sources(observation):
 # final part of runpipe1
 def merge_observations(cluster):
     prepare_to_merge_observations_from(cluster)
-    unzip_data_from(cluster)
-    #reprocess_cluster_test(cluster)
-    reprocess_cluster(cluster)
+    #unzip_data_from(cluster)
+    #reprocess_cluster(cluster)
+
+    reprocess_cluster_multiobs(cluster) #multiobs test
     ccd_sort(cluster)
     ciao_back(cluster)
     ciao_merge_background(cluster)
@@ -537,9 +591,9 @@ def lightcurves_with_exclusion(cluster):
 
         print("Creating the image with sources removed")
 
-        #data = observation.acis_nosrc_filename
+        data = observation.acis_nosrc_filename
 
-        #image_nosrc = "{}/img_acisI_nosrc_fullE.fits".format(observation.analysis_directory)
+        image_nosrc = "{}/img_acisI_nosrc_fullE.fits".format(observation.analysis_directory)
 
         if io.file_exists(observation.exclude_file):
             print("Removing sources from event file to be used in lightcurve")
@@ -598,9 +652,9 @@ def lightcurves_with_exclusion(cluster):
 
         rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
 
-        #data_clean = outfile
+        data_clean = outfile
 
-        #print("Don't forget to check the light curves!")
+        print("Don't forget to check the light curves!")
 
 
 def sources_and_light_curves(cluster):
@@ -627,9 +681,9 @@ def create_global_response_file_for(observation: cluster.Observation):
 
     rt.acis_set_ardlib(badpixfile=bad_pixel_file)
 
-    mask_file = io.get_filename_matching("{}/*msk1.fits".format(obs_analysis_dir))
+    mask_file = print(observation.mask_file)
 
-    make_pcad_lis(observation.cluster, observation.id)
+    make_pcad_lis(observation)
 
     infile = "{}[sky=region({})]".format(clean, observation.response_file_region_covering_ccds)
     outroot = "{}/acisI_region_0".format(global_response_dir)
@@ -674,12 +728,11 @@ def create_global_response_file_for(observation: cluster.Observation):
     io.copy(redist_matrix_file, observation.redistribution_matrix_file)
 
 
-def make_pcad_lis(cluster, obsid):
-    analysis_dir = cluster.obs_analysis_directory(obsid)
-    search_str = "{}/*asol1.fits".format(analysis_dir)
+def make_pcad_lis(observation: cluster.Observation):
+    search_str = "{}/*asol1.fits".format(observation.reprocessing_directory)
     pcad_files = io.get_filename_matching(search_str)
     pcad_list_string = "\n".join(pcad_files)
-    pcad_filename = "{}/pcad_asol1.lis".format(analysis_dir)
+    pcad_filename = "{}/pcad_asol1.lis".format(observation.analysis_directory)
 
     io.write_contents_to_file(pcad_list_string, pcad_filename, binary=False)
 
@@ -703,7 +756,7 @@ def make_response_files(cluster):
         create_global_response_file_for(observation)
 
 
-def make_mask_file(observation):
+def make_mask_file(observation: cluster.Observation):
     from astropy.io import fits
     print("Creating an image mask for {}.".format(observation.id))
 
@@ -719,12 +772,20 @@ def make_mask_file(observation):
     mask.writeto(mask_filename, overwrite=True)
 
     rt.dmcopy.punlearn()
-    # infile = "{mask_filename}[sky=region({fov_file})][opt full]".format( # for ACIS-I & ACIS-S
-    infile = "{mask_filename}[sky=region({fov_file}[ccd_id=0:3])][opt full]".format(  # for ACIS-I
+    # need to check type of observation, S or I, and then generate a new string with the approriate ccd filtering
+
+    if observation.acis_type == 0: # ACIS-I
+        ccd_filter = "0:3"
+    else:
+        ccd_filter = "4:9"
+
+    #infile = "{mask_filename}[sky=region({fov_file})][opt full]".format( # for ACIS-I & ACIS-S
+    infile = "{mask_filename}[sky=region({fov_file}[ccd_id={ccd_filter}])][opt full]".format(
         mask_filename=mask_filename,
-        fov_file=observation.fov_file
+        fov_file=observation.fov_file,
+        ccd_filter=ccd_filter
     )
-    outfile = observation.acisI_combined_mask
+    outfile = observation.acisI_combined_mask_file
     clobber = True
 
     rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
@@ -740,7 +801,7 @@ def make_cumulative_mask_file(cluster, observation):
     from astropy.io import fits
     cumulative_mask_filename = cluster.combined_mask
 
-    current_obs_mask_filename = observation.acisI_combined_mask
+    current_obs_mask_filename = observation.acisI_combined_mask_file
 
     if not io.file_exists(cumulative_mask_filename):
         print("Cumulative mask file not found. Creating it.")
@@ -820,8 +881,9 @@ def run_ds9_for_master_crop(cluster):
 
 
 def stage_4(cluster: cluster.ClusterObj):
-    from astropy.io import fits
 
+    from astropy.io import fits
+    # This portion of the pypeline 
     combined_dir = cluster.combined_directory
 
     io.make_directory(combined_dir)
@@ -884,7 +946,7 @@ def create_combined_images(cluster):
     counts_image = np.zeros(mask[0].data.shape)
     back_rescale = np.zeros(mask[0].data.shape)
 
-    #t_obs = t_back = 0.0
+    t_obs = t_back = 0.0
 
     good_crop = False
     while not good_crop:
@@ -950,13 +1012,7 @@ def create_combined_images(cluster):
     print("Images combined!")
 
 
-def extract_spec(observation, region_number):
-    dtime = observation.effective_data_time_for_region(region_number)
-    btime = observation.effective_background_time_for_region(region_number)
-
-    observation.write_temp_region(region_number)
-    region_file = observation.temp_region_filename(region_number)
-
+def extract_spec(observation, region_file, region_number, dtime, btime):
     infile = "{clean}[sky=region({region_file})][bin pi]".format(
         clean=observation.sc_clean,
         region_file=region_file
@@ -1020,9 +1076,8 @@ def extract_spec(observation, region_number):
     rt.dmhedit(infile=back_pi, filelist="", operation="add", key="EXPOSURE", value=btime)
 
     io.append_to_file(observation.cluster.spec_lis(region_number), "{}\n".format(data_pi))
-    io.delete(observation.temp_region_filename(region_number))
 
-    return data_pi, back_pi
+    return (data_pi, back_pi)
 
 
 def spec_extract(observation, region_file, region_num, min_counts):
@@ -1046,9 +1101,9 @@ def spec_extract(observation, region_file, region_num, min_counts):
                    asp='@{}'.format(observation.pcad_asol),
                    combine='no',
                    mskfile=observation.acis_mask_sc,
-                   #                   bkgfile=observation.back,
+                   bkgfile=observation.back,
                    bkgresp="no",
-                   badpixfile=observation.bad_pixel_file,
+                   badpixfile=observation.reprocessed_bad_pixel_filename,
                    binspec=1,
                    clobber=True
                    )
@@ -1070,7 +1125,11 @@ def get_exposure(filename):
 
 
 def run_stage_1(cluster):
-    download_data(cluster)
+    try:
+        download_data(cluster)
+    except TimeoutError as te:
+        print("Download failed due to a timeout. Appears the connection was dropped.")
+        print("Error: {}".format(te.strerror))
     merge_observations(cluster)
 
 
@@ -1198,9 +1257,9 @@ def finish_stage_4(cluster: cluster.ClusterObj):
 
 
 def print_stage_5_prep(cluster: cluster.ClusterObj):
-    prep_str = """You are now ready for Stage 5. This stage only requires all previous stages to be completed.
-    Stage 5 calculates the adaptive circular bins, generates the scale map, and calculates exposure corrections.
-    It can take a long time (~10s of hours).
+    prep_str = """You are now ready for Stage 5. This stage only requires all previous stages to be completed. 
+    Stage 5 calculates the adaptive circular bins, generates the scale map, and calculates exposure corrections. 
+    It can take a long time (~10s of hours). 
 
     After stage 5 is complete, you are ready for spectral fitting.
 
@@ -1226,15 +1285,15 @@ def print_stage_spectral_fits_prep(cluster: cluster.ClusterObj):
     If offloading, copy the cluster configuration file, {cluster_config},
     and the acb directory to the remote machine. Update the configuration file to reflect the appropriate
     path of your data.
-    
+
     Next, with CIAO running, simply run:
-    
+
         python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini
-    
+
     The resolution parameter can be set to either 1 - low resolution, 2 - medium resolution, or 3 - high resolution.
     If the parallel flag indicates to run in parallel. If the number of cpus is not set (--num_cpus), ClusterPyXT uses
     the total number of cores on your machine. 
-    
+
     If you must restart the fitting for any reason, simply add the --continue flag in order to not redo any of the fits.""".format(
         cluster_config=cluster.configuration_filename
     )
@@ -1245,27 +1304,25 @@ def run_stage_spectral_fits(cluster: cluster.ClusterObj):
     print("Not implemented yet. Complete spectral fits by running:"
           "python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini")
 
-    
+
 def finish_stage_spectral_fits(cluster: cluster.ClusterObj):
     print_stage_tmap_prep(cluster)
+    pass
 
 
 def print_stage_tmap_prep(cluster: cluster.ClusterObj):
     prep_str = """Now ready for spectral fitting. 
-    
+
     If offloaded, copy the spectral fits file, {spectral_fits},
     back to the local machine. 
-    
+
     Next, run 
-        
+
         python acb.py --temperature_map --resolution 2 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini
-    
+
     This will create the temperature map and allow for the creation of the pressure maps.""".format(
         spectral_fits=cluster.spec_fits_file
     )
-
-    print(prep_str)
-
 
 def run_stage_tmap(cluster: cluster.ClusterObj):
     pass
@@ -1326,10 +1383,7 @@ def start_from_last(cluster: cluster.ClusterObj):
     return
 
 
-def initialize_cluster(name="", obsids=None, abundance=0.3, redshift=0.0, nH=0.0):
-    if obsids is None:
-        obsids = []
-
+def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
     clstr = cluster.ClusterObj(name=name, observation_ids=obsids, abundance=abundance,
                                redshift=redshift, hydrogen_column_density=nH,
                                data_directory=config.data_directory())
