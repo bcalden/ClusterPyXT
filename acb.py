@@ -764,6 +764,8 @@ if __name__ == '__main__':
             make_temperature_map(clstr, args.resolution)
         elif args.pressure:
             make_pressure_map(clstr)
+        elif args.entropy:
+            make_entropy_map(clstr)
         elif args.shock:
             import shockfinder
             if io.check_yes_no("This is likely not going to work. Continue?"):
