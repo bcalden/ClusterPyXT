@@ -203,7 +203,7 @@ def ciao_back(cluster, overwrite=False):
             )
             rt.reproject_events(infile=infile,
                                 outfile=outfile,
-                                aspect="@{pcad_file}".format(pcad_file=pcad),
+                                aspect="@{pcad_file}".format(pcad_file=pcad_file),
                                 match=match,
                                 random=0,
                                 clobber=True)
@@ -415,8 +415,8 @@ def make_point_spread_function_map(observation):
     rt.mkpsfmap.punlearn()
     rt.mkpsfmap(infile=observation.broad_threshold_image_filename,
                 outfile=observation.point_spread_function_map_filename,
-                energy=1,
-                ecf=0.1,
+                energy=8,
+                ecf=0.9,
                 clobber=True)
 
 

@@ -1364,7 +1364,7 @@ Last Step Completed: {}""".format(self.name,
 
         return scale_map_values
 
-    @property
+
     def write_scale_map_csv_to_fits(self):
         scale_map_values = self.scale_map_csv_values
 
