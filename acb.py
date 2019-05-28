@@ -4,6 +4,8 @@ import numpy as np
 import time
 import argparse
 import data_operations as do
+from astropy.io import fits
+import multiprocessing as mp
 
 def get_arguments():
     help_str = """
@@ -157,6 +159,7 @@ def _update_completed_things(current, max_num, thing):
     ))
     io.flush()
 
+
 def _source_free_region(counter, current, max_num):
     io.clear_line()
     io.write("Encountered a source-free region -- recalculating...{counter} - {current}/{max} complete".format(
@@ -165,6 +168,7 @@ def _source_free_region(counter, current, max_num):
         max=max_num
     ))
     io.flush()
+
 
 def _update_effective_exposure_time(current_region, number_regions, time_elapsed):
     io.clear_line()
@@ -175,43 +179,162 @@ def _update_effective_exposure_time(current_region, number_regions, time_elapsed
     ))
     io.flush()
 
-def create_scale_map(cluster):
-    from astropy.io import fits
 
-    target_sn = cluster.target_sn
+def create_scale_map_in_parallel(cluster: cluster.ClusterObj):
+    target_sn = cluster.signal_to_noise
 
-    mask_fits = fits.open(cluster.combined_mask)
+    mask = cluster.combined_mask_data
 
-    cts_image = np.zeros(mask_fits[0].data.shape)
-    back_rescale = np.zeros(mask_fits[0].data.shape)
+    cts_image = np.zeros(mask.shape)
+    back_rescale = np.zeros(mask.shape)
 
     for obs in cluster.observations:
-        obs_cts_image_fits = fits.open(obs.acisI_comb_img)
-        obs_back_image_fits = fits.open(obs.backI_comb_img)
+        cts_image += obs.acisI_combined_image
+        t_obs = obs.acisI_combined_image_header['EXPOSURE']
 
-        cts_image += obs_cts_image_fits[0].data
-        t_obs = obs_cts_image_fits[0].header['EXPOSURE']
+        t_back = obs.backI_combined_image_header['EXPOSURE']
 
-        # back_rescale += obs_back_image_fits[0].data
-        t_back = obs_back_image_fits[0].header['EXPOSURE']
-
-        back_rescale += (t_obs/t_back)*obs_back_image_fits[0].data
-
-    # sigma_back = np.sqrt(back_rescale)
-    # sigma_cts = np.sqrt(cts_image)
+        back_rescale += (t_obs / t_back) * obs.backI_combined_image
 
     signal = cts_image - back_rescale
 
     signal[np.where(signal < 0)] = 0
 
-    # noise = np.sqrt(sigma_cts**2 + sigma_back**2)
-    #
-    # scale_file = cluster.scale_map_file
-    # sn_file = cluster.sn_map
+    sz = signal.shape
+    max_x = sz[0]
+    max_y = sz[1]
+
+    io.make_directory(cluster.acb_dir)
+    cluster.initialize_scale_map_csv()
+
+    pix_x = np.zeros(sz)
+    pix_y = np.zeros(sz)
+
+    for j in range(max_y):
+        for i in range(max_x):
+            pix_x[i, j] = float(i)
+            pix_y[i, j] = float(j)
+
+    num_pix = max_x * max_y
+
+    start_time = time.time()
+
+    indeces = np.vstack(np.where(mask==1)).T
+    num_index_lists = (indeces.shape[0] // mp.cpu_count())
+    index_lists = np.array_split(indeces, num_index_lists)
+
+    num_iterations = len(index_lists)
+
+    for i, index_list in enumerate(index_lists):
+        if i % 100 == 0:
+            print("{} of {} iterations complete.".format(i, num_iterations))
+
+        processes = [mp.Process(target=calculate_radius_at_index,
+                                args=(index, cluster, pix_x, pix_y, cts_image, num_pix, back_rescale))
+                     for index in index_list]
+
+        for process in processes:
+            process.start()
+
+        for process in processes:
+            process.join()
+
+    cluster.write_scale_map_csv_to_fits()
+
+    end_time = time.time()
+    print("Time elapsed {:0.2f} seconds.".format(end_time - start_time))
+
+
+def calculate_radius_at_index(index, cluster: cluster.ClusterObj,
+                              pix_x: np.ndarray, pix_y: np.ndarray,
+                              counts_image: np.ndarray, num_pix: int,
+                              back_rescale: np.ndarray):
+    x_index = index[0]
+    y_index = index[1]
+    delta_x = x_index-pix_x
+    delta_y = y_index-pix_y
+
+    radius = np.sqrt(delta_x**2 + delta_y**2)
+
+    dr = 24.0
+    min_dr = 0.125
+    hilo = 0
+    niter = 0
+    max_radius = 100
+    r = max_radius + 1 # potentially a IDL vestige
+    counter = 0
+
+    signal_to_noise = 0
+    scale_map_radius = 0
+
+    while (dr > min_dr) and (niter < 100):
+        indeces = np.where(radius <= r)
+        counts_map_total = np.sum(counts_image[indeces])
+
+        if counts_map_total == 0:
+            counter += 1
+            _source_free_region(counter, x_index*y_index, num_pix)
+            sn_val = 0
+            hilo = -1
+        else:
+            backmap_tot = np.sum(back_rescale[indeces])
+            signal_total = counts_map_total - backmap_tot
+            noise_total = np.sqrt(counts_map_total + backmap_tot)
+            sn_val = signal_total / noise_total
+        if float(sn_val) < float(cluster.target_sn):
+            if r > max_radius:
+                r = max_radius + 1
+
+                niter = 110
+                # exit by setting niter=110.
+                # (niter=100 means niter hit max niter.
+                # niter=110 means radius hit max radius)
+
+                signal_to_noise = 0
+                scale_map_radius = 0
+            else:
+                if hilo == 1:
+                    dr *= 0.5
+                r += dr
+                hilo = -1
+        else:
+            snmapval = signal_to_noise
+            if (sn_val < snmapval) or (snmapval == 0.0):
+                signal_to_noise = sn_val
+                scale_map_radius = r
+            if hilo == -1:
+                dr *= 0.5
+            r -= dr
+            hilo = 1
+
+        niter += 1
+
+    cluster.write_scale_map_radius(x_index, y_index, scale_map_radius, signal_to_noise)
+
+
+def create_scale_map(cluster):
+    target_sn = cluster.signal_to_noise
+
+    mask = cluster.combined_mask_data
+
+    cts_image = np.zeros(mask.shape)
+    back_rescale = np.zeros(mask.shape)
+
+    for obs in cluster.observations:
+        cts_image += obs.acisI_combined_image
+        t_obs = obs.acisI_combined_image_header['EXPOSURE']
+
+        t_back = obs.backI_combined_image_header['EXPOSURE']
+
+        back_rescale += (t_obs/t_back)*obs.backI_combined_image
+
+    signal = cts_image - back_rescale
+
+    signal[np.where(signal < 0)] = 0
 
     sz = signal.shape
-    nx = sz[0]
-    ny = sz[1]
+    max_x = sz[0]
+    max_y = sz[1]
 
     # radius_map = np.zeros(sz)
 
@@ -221,37 +344,28 @@ def create_scale_map(cluster):
     pix_x = np.zeros(sz)
     pix_y = np.zeros(sz)
 
-    for j in range(ny):
-        for i in range(nx):
+    for j in range(max_y):
+        for i in range(max_x):
             pix_x[i, j] = float(i)
             pix_y[i, j] = float(j)
-
-    bpix_x = 0
-    bpix_y = 0
-    epix_x = nx
-    epix_y = ny
 
     max_radius = 100
     r = max_radius + 1  # +1 may be a remnant of IDL indexing
     #dr = 24.0
     min_dr = 0.125
 
-    det = mask_fits[0].data
+    num_pix = max_x * max_y
 
-    num_pix = nx*ny
-
-    ci=0
-    counter=0
+    ci = 0
+    counter = 0
     start_time = time.time()
 
-    # output_queue = mp.Queue()
 
-
-    for cj in range(bpix_y,epix_y):
+    for cj in range(0, max_y):
         #print("{} out of {} pixels complete.".format(cj*ci, num_pix))
         _update_completed_things(cj*ci, num_pix, "pixels")
-        for ci in range(bpix_x, epix_x):
-            if det[ci,cj] == 1:
+        for ci in range(0, max_x):
+            if mask[ci, cj] == 1:
                 delta_x = ci-pix_x
                 delta_y = cj-pix_y
 
@@ -267,7 +381,7 @@ def create_scale_map(cluster):
                     cts_map_total = np.sum(cts_image[indeces])
 
                     if cts_map_total == 0:
-                        counter+=1
+                        counter += 1
                         _source_free_region(counter, ci*cj, num_pix)
                         sn_val = 0
                         hilo = -1
@@ -276,7 +390,7 @@ def create_scale_map(cluster):
                         signal_total = cts_map_total - backmap_tot
                         noise_total = np.sqrt(cts_map_total+backmap_tot)
                         sn_val = signal_total/noise_total
-                    if sn_val < target_sn:
+                    if float(sn_val) < float(target_sn):
                         if r > max_radius:
                             r = max_radius + 1
 
@@ -293,10 +407,10 @@ def create_scale_map(cluster):
                             r += dr
                             hilo = -1
                     else:
-                        snmapval = sn_map[ci,cj]
+                        snmapval = sn_map[ci, cj]
                         if (sn_val < snmapval) or (snmapval == 0.0):
                             sn_map[ci,cj] = sn_val
-                            scale_map[ci,cj] = r
+                            scale_map[ci, cj] = r
                         if hilo == -1:
                             dr *= 0.5
                         r -= dr
@@ -310,11 +424,15 @@ def create_scale_map(cluster):
 
     io.make_directory(cluster.acb_dir)
 
-    obs_cts_image_fits[0].data = scale_map
-    obs_cts_image_fits.writeto(cluster.scale_map_file, overwrite=True)
+    header = cluster.observations[0].acisI_combined_image_header
 
-    obs_cts_image_fits[0].data = sn_map
-    obs_cts_image_fits.writeto(cluster.sn_map, overwrite=True)
+    io.write_numpy_array_to_fits(scale_map, cluster.scale_map_file, header=header)
+    io.write_numpy_array_to_fits(sn_map, cluster.sn_map, header=header)
+    #obs_cts_image_fits[0].data = scale_map
+    #obs_cts_image_fits.writeto(cluster.scale_map_file, overwrite=True)
+
+    #obs_cts_image_fits[0].data = sn_map
+    #obs_cts_image_fits.writeto(cluster.sn_map, overwrite=True)
 
 
 def prepare_efftime_circle(cluster):
@@ -328,28 +446,28 @@ def prepare_efftime_circle(cluster):
         io.delete_if_exists(observation.effbtime)
         io.delete_if_exists(observation.effdtime)
 
-        if not io.file_exists(observation.acisI_nosrc_combined_mask):
+        if not io.file_exists(observation.acisI_nosrc_combined_mask_file):
             print("Removing point sources from the observations combined mask file.")
             print("dmcopy infile='{}[exclude sky=region({})]' outfile={} clobber=True".format(
-                observation.acisI_combined_mask,
+                observation.acisI_combined_mask_file,
                 cluster.sources_file,
-                observation.acisI_nosrc_combined_mask
+                observation.acisI_nosrc_combined_mask_file
             ))
             rt.dmcopy.punlearn()
             rt.dmcopy(
                 infile="{fits_file}[exclude sky=region({source_file})]".format(
-                    fits_file=observation.acisI_combined_mask,
+                    fits_file=observation.acisI_combined_mask_file,
                     source_file=cluster.sources_file
                 ),
-                outfile=observation.acisI_nosrc_combined_mask,
+                outfile=observation.acisI_nosrc_combined_mask_file,
                 clobber=True
             )
         else:
             print("{acis} already exists.".format(
-                acis=observation.acisI_nosrc_combined_mask
+                acis=observation.acisI_nosrc_combined_mask_file
             ))
 
-        if not io.file_exists(observation.acisI_high_energy_combined_image):
+        if not io.file_exists(observation.acisI_high_energy_combined_image_file):
             print("Creating high band (9.5-12 keV) source image cropped to combined region.")
             rt.dmcopy.punlearn()
             rt.dmcopy(
@@ -366,18 +484,18 @@ def prepare_efftime_circle(cluster):
                 infile="{fits_file}[EVENTS][bin sky=4][energy=9500:12000]".format(
                     fits_file=observation.acisI_high_energy_temp_image
                 ),
-                outfile=observation.acisI_high_energy_combined_image,
+                outfile=observation.acisI_high_energy_combined_image_file,
                 option="image",
                 clobber=True
             )
         else:
             print("{fits_file} already exists.".format(
-                fits_file=observation.acisI_high_energy_combined_image
+                fits_file=observation.acisI_high_energy_combined_image_file
             ))
 
         io.delete_if_exists(observation.acisI_high_energy_temp_image)
 
-        if not io.file_exists(observation.backI_high_energy_combined_image):
+        if not io.file_exists(observation.backI_high_energy_combined_image_file):
             print("Creating high band (9.5-12 keV) background image cropped to combined region.")
             rt.dmcopy.punlearn()
             rt.dmcopy(
@@ -394,21 +512,19 @@ def prepare_efftime_circle(cluster):
                 infile="{fits_file}[EVENTS][bin sky=4][energy=9500:12000]".format(
                     fits_file=observation.backI_high_energy_temp_image
                 ),
-                outfile=observation.backI_high_energy_combined_image,
+                outfile=observation.backI_high_energy_combined_image_file,
                 option="image",
                 clobber=True
             )
         else:
             print("{fits_file} already exists.".format(
-                fits_file=observation.backI_high_energy_combined_image
+                fits_file=observation.backI_high_energy_combined_image_file
             ))
 
         io.delete_if_exists(observation.backI_high_energy_temp_image)
 
 
 def calculate_effective_times(cluster: cluster.ClusterObj):
-    from astropy.io import fits
-
     start_time = time.time()
     scale_map = cluster.scale_map
     number_of_regions = cluster.number_of_regions
@@ -421,16 +537,15 @@ def calculate_effective_times(cluster: cluster.ClusterObj):
 
     for observation in cluster.observations:
         print("Starting observation {obs}".format(obs=observation.id))
-        high_energy_data = fits.open(observation.acisI_high_energy_combined_image)[0].data
-        background = fits.open(observation.backI_high_energy_combined_image)[0].data
-
+        high_energy_data = observation.acisI_high_energy_combined_image
+        background = observation.backI_high_energy_combined_image
         sum_acis_high_energy = np.sum(high_energy_data)  # get the total counts in the high energy image
         sum_back_high_energy = np.sum(background)
 
         bg_to_data_ratio = sum_back_high_energy / sum_acis_high_energy
 
-        source_subtracted_data = fits.open(observation.acisI_nosrc_combined_mask)[0].data
-        exposure_time = fits.open(observation.acisI_high_energy_combined_image)[0].header['EXPOSURE']
+        source_subtracted_data = observation.acisI_nosrc_combined_mask
+        exposure_time = observation.acisI_high_energy_combined_image_header['EXPOSURE']
 
         YY, XX = np.meshgrid(np.arange(ny), np.arange(nx))
 
@@ -465,7 +580,6 @@ def calculate_effective_times(cluster: cluster.ClusterObj):
         observation.effective_background_time = effective_background_times
 
 
-
 def prepare_for_spec(cluster_obj: cluster.ClusterObj):
     try:
         import ciao
@@ -473,7 +587,6 @@ def prepare_for_spec(cluster_obj: cluster.ClusterObj):
         print("Must be running CIAO before running prepare_for_spec.")
         raise
     io.make_directory(cluster_obj.super_comp_dir)
-    #io.make_directory(cluster_obj.sherpa_save_dir)
     cluster_obj.initialize_best_fits_file()
     print("Preparing files for spectral analysis and copying to {super_comp_dir} for offloading computation.".format(
         super_comp_dir=cluster_obj.super_comp_dir
@@ -492,23 +605,14 @@ def prepare_for_spec(cluster_obj: cluster.ClusterObj):
         io.write_contents_to_file(exposure, observation.exposure_time_file, binary=False)
 
 
-
 def make_commands_lis(cluster: cluster.ClusterObj, resolution):
-    from astropy.io import fits
-
     print("Creating {}".format(cluster.command_lis))
 
     offset = [None, 5, 3, 1][resolution]
 
-
     start_time = time.time()
 
-    scalemap = cluster.scale_map
-    # mask = fits.open(cluster.combined_mask)[0].data
     region_list = cluster.scale_map_regions_to_fit(resolution)
-    #sz = scalemap.shape
-    #sx = sz[0]
-    #sy = sz[1]
 
     command_string = []
 
@@ -529,25 +633,6 @@ def make_commands_lis(cluster: cluster.ClusterObj, resolution):
         )
         command_string.append(new_command)
 
-    # for x in range(sx):
-    #     for y in range(sy):
-    #         if mask[i,j] == 1:
-    #             image_radius = scalemap[i,j]
-    #             if 0 < image_radius <= 100:
-    #                 if i % offset == 0 and j % offset == 0:
-    #                     new_command = "python {pix2pix} {cluster_config} {region}".format(
-    #                         pix2pix=pix2pix_path,
-    #                         cluster_config="{data_dir}/{name}_pypeline_config.ini".format(
-    #                             data_dir=data_dir,
-    #                             name=cluster.name
-    #                         ),
-    #                         region=position
-    #                     )
-    #                     command_string.append(new_command)
-    #                     region_list.append("{}".format(position))
-    #                 #end if
-    #             # end if
-    #             position += 1
     command_lis = "\n".join(command_string)
     region_string = '\n'.join([str(x) for x in region_list])
     io.write_contents_to_file(command_lis, cluster.command_lis, binary=False)
@@ -555,22 +640,6 @@ def make_commands_lis(cluster: cluster.ClusterObj, resolution):
     end_time = time.time()
     print("Time elapsed: {time:0.2f} sec".format(time=(end_time-start_time)))
 
-
-# def get_pixel_coordinates(cluster: cluster.ClusterObj):
-#     region_map = fits.open(cluster.region_to_index)[0].data
-#     coordinates = np.array(np.nonzero(region_map)).T
-#     return coordinates
-
-
-# def get_coords_for_region(cluster: cluster.ClusterObj, region_num: int, scale_map):
-#     region_index_map = fits.open(cluster.scale_map_region_index)
-#     sz = region_index_map.shape
-#     for x in range(sz[0]):
-#         for y in range(sz[1]):
-#             if region_index_map[x,y] == region_num:
-#                 return x,y
-#     print("Fail!")
-#     return 0,0
 
 def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False):
 
@@ -607,7 +676,6 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
         if i % 1000 == 0:
             _update_completed_things(i, len(regions), "regions")
         coordinates = cluster.coordinates_for_scale_map_region(region, scale_map_regions)
-        #x,y = get_coords_for_region(cluster, regions[i])#coordinates[i-1]  # region 1 = index 0, reg 2 = index 1...
         x = int(coordinates[0])
         y = int(coordinates[1])
         low_x = x - offset
@@ -649,7 +717,7 @@ def fitting_preparation(clstr, args=None):
         resolution = args.resolution
 
     print("Creating the scale map.")
-    create_scale_map(clstr)
+    create_scale_map_in_parallel(clstr)
 
     print("Creating the region index map.")
     create_scale_map_region_index(clstr)
@@ -712,8 +780,6 @@ def make_density_map(clstr: cluster.ClusterObj):
 
 
 def make_pressure_map(clstr: cluster.ClusterObj):
-
-    from astropy.io import fits
     n = make_density_map(clstr)
     T = clstr.temperature_map
     header = clstr.temperature_map_header
@@ -744,16 +810,9 @@ def make_entropy_map(clstr: cluster.ClusterObj):
 
 if __name__ == '__main__':
     args, parser = get_arguments()
+
     if args.cluster_config is not None:
-        if io.file_exists(args.cluster_config):
-            clstr = cluster.read_cluster_data(args.cluster_config)
-        else:
-            clstr_config = cluster.get_cluster_config(args.cluster_config)
-            if io.file_exists(clstr_config):
-                clstr = cluster.read_cluster_data(clstr_config)
-            else:
-                print("Error finding cluster configuration file. Try passing the full path and filename.")
-                exit(1)
+        clstr = cluster.load_cluster(args.cluster_config)
 
         if args.commands:
             make_commands_lis(clstr, args.resolution)

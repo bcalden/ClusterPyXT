@@ -67,6 +67,7 @@ def update_system_configuration(**kwargs):
 
 def read_system_configuration(filename):
     config = configparser.ConfigParser()
+
     config.read(filename)
     try:
         config_dict = dict(config['pypeline_config'])
