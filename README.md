@@ -108,7 +108,13 @@ After generating the temperature map, there is now enough data to generate the p
 This software is licensed under a 3-clause BSD style license - see the LICENSE.md file
 
 ## Citation
-If you make use of this code in its original form or portions of it, please cite: [arXiv:1903.08215](https://arxiv.org/abs/1903.08215)
+If you make use of this code in its original form or portions of it, please cite: 
+
+Alden et al., 2019, Astronomy and Computing, 27 (2019), 147-155
+[doi: 10.1016/j.ascom.2019.04.001](https://doi.org/10.1016/j.ascom.2019.04.001)
+
+Also available on the arXiv:
+[arXiv:1903.08215](https://arxiv.org/abs/1903.08215)
 
 ## Contributions
 All levels of contributions are welcome. From text documentation to parallel processing algorithms, your input and help is desired. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for more information. 
