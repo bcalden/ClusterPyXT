@@ -87,7 +87,8 @@ def make_directory(directory):
         os.makedirs(get_path(directory))
     except OSError as err:
         if err.errno == errno.EEXIST:
-            print("Directory {} already exists, skipping.".format(directory))
+            #print("Directory {} already exists, skipping.".format(directory))
+            return
         elif err.errno in [errno.EACCES, errno.EROFS]:
             print("Unable to create {}, check user permissions allow for write access to {} and its"
                   "parent directories.".format(directory, directory))
@@ -188,6 +189,10 @@ def read_contents_of_file(filename):
 
 def move(src, dst):
     shutil.move(src, dst)
+
+
+def temp_filename(filename):
+    return get_path("{}_TEMP".format(filename))
 
 
 def copy(src, dst, replace=False):

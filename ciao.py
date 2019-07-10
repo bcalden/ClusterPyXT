@@ -9,6 +9,9 @@ import acb
 import cluster
 import sys
 import data_operations as do
+import time
+import multiprocessing as mp
+import astropy.io.fits as fits
 
 try:
     from ciao_contrib.cda.data import download_chandra_obsids
@@ -340,21 +343,24 @@ def ccd_sort(cluster):
                 #sys.exit(1)
 
         os.chdir(observation.analysis_directory)
-        acisI_list = io.get_filename_matching("acis_ccd[0-3].fits")
-        #acisS_list = io.get_filename_matching("acis_ccd[4-8].fits")
-        for i in range(len(acisI_list)):
-            acisI_list[i] = io.get_path("{obs_analysis_dir}/{file}".format(obs_analysis_dir=observation.analysis_directory,
-                                                                           file=acisI_list[i]))
-        io.write_contents_to_file("\n".join(acisI_list), observation.ccd_merge_list, binary=False)
-        merge_data_and_backgrounds(cluster, acisI_list)
+        if observation.acis_type == 0:  # ACIS-I
+            acis_list = io.get_filename_matching("acis_ccd[0-3].fits")
+        elif observation.acis_type == 1:  # ACIS-S
+            acis_list = io.get_filename_matching("acis_ccd[4-8].fits")
+        for i in range(len(acis_list)):
+            acis_list[i] = io.get_path("{obs_analysis_dir}/{file}".format(obs_analysis_dir=observation.analysis_directory,
+                                                                           file=acis_list[i]))
+        io.write_contents_to_file("\n".join(acis_list), observation.ccd_merge_list, binary=False)
+        merge_data_and_backgrounds(cluster, acis_list)
 
     return
 
 
 def merge_data_and_backgrounds(cluster, acis_list):
+    # merges the
     rt.dmmerge.punlearn()
 
-    merged_file = "acisI.fits"
+    merged_file = "acisI.fits" # needs to be renamed to reflect ACIS-I & S
     rt.dmmerge(infile="@acisI.lis[subspace -expno]",
                outfile=merged_file,
                clobber=True)
@@ -388,16 +394,15 @@ def actually_merge_observations_from(cluster):
     io.write_contents_to_file("\n".join(merged_observations), merged_lis, binary=False)
     outroot = io.get_path("{}/{}/".format(cluster.directory, cluster.name))
 
-    #infile = "@{infile}[ccd_id=0:3]".format(infile=merged_lis) # for ACIS-I
     infile = "@{infile}".format(infile=merged_lis) # for ACIS-I & ACIS-S
 
-    #xygrid = "1500:6500:4,1500:6500:4"
+    xygrid = "-3000:10000:4,-3000:10000:4"
 
     if len(merged_observations) == 1:
         rt.fluximage.punlearn()
         rt.fluximage(infile=infile,
                      outroot=outroot,
-                     #xygrid=xygrid,
+                     xygrid=xygrid,
                      clobber=True)
         print("Only single observation, flux image created.")
 
@@ -405,18 +410,18 @@ def actually_merge_observations_from(cluster):
         rt.merge_obs.punlearn()
         rt.merge_obs(infiles=infile,
                      outroot=outroot,
-                     #xygrid=xygrid,
+                     xygrid=xygrid,
                      clobber=True,
                      parallel=True,
                      nproc=12)
 
 
-def make_point_spread_function_map(observation):
+def make_point_spread_function_map(observation, ecf=0.3, energy=1.4):
     rt.mkpsfmap.punlearn()
     rt.mkpsfmap(infile=observation.broad_threshold_image_filename,
                 outfile=observation.point_spread_function_map_filename,
-                energy=8,
-                ecf=0.9,
+                energy=energy,
+                ecf=ecf,
                 clobber=True)
 
 
@@ -427,7 +432,7 @@ def wav_detect(observation):
                  scellfile=observation.source_cell_map_filename,
                  imagefile=observation.source_image_filename,
                  defnbkgfile=observation.normalized_background_without_sources_filename,
-                 scales="2.0 4.0",
+                 scales="1.0 2.0 4.0 8.0 16.0",
                  psffile=observation.point_spread_function_map_filename,
                  regfile=observation.source_region_filename,
                  clobber=True)
@@ -437,9 +442,11 @@ def merge_source_files(cluster: cluster.ClusterObj):
     region_files = [observation.source_region_filename for observation in cluster.observations]
     io.merge_region_files(region_files, cluster.sources_file)
 
-def find_sources(cluster: cluster.ClusterObj):
+
+def find_sources(cluster: cluster.ClusterObj, ecf=0.1, energy=1.4):
     for observation in cluster.observations:
-        make_point_spread_function_map(observation)
+        print("Finding sources in {}".format(observation.id))
+        make_point_spread_function_map(observation, ecf=ecf, energy=energy)
         wav_detect(observation)
     merge_source_files(cluster)
 
@@ -485,7 +492,8 @@ def remove_sources_from_observation(observation):
     for i, type_of_obs in enumerate(fore_or_back):
         infile = "{type_of_obs}[exclude sky=region({sources})]".format(
             type_of_obs=type_of_obs,
-            sources=observation.cluster.sources_file
+            #sources=observation.cluster.sources_file
+            sources=observation.source_region_filename
         )
         outfile = [observation.acis_nosrc_filename, observation.background_nosrc_filename][i]
         clobber = True
@@ -658,11 +666,31 @@ def lightcurves_with_exclusion(cluster):
 
 
 def sources_and_light_curves(cluster):
+    print("Source removal:")
     for observation in cluster.observations:
         print("Removing sources for {obsid}".format(obsid=observation.id))
         remove_sources(observation)
+
+    print("Light curves:")
+    for observation in cluster.observations:
         print("Generating light curves for {obsid}".format(obsid=observation.id))
         generate_light_curve(observation)
+
+
+def sources_and_light_curves_parallel(cluster, args):
+    print("Removing sources from observations in parallel.")
+    # do_function_on_observations_in_parallel(cluster, function=remove_sources,
+    #                                         num_cpus=args.num_cpus)
+
+    pool = mp.Pool(args.num_cpus)
+    pool.map(remove_sources, cluster.observations)
+
+    print("Generating light curves.")
+    for observation in cluster.observations:  # Doesn't work in parallel yet. Haven't debugged. Serial for now.
+        generate_light_curve(observation)
+
+    #pool.map(generate_light_curve, cluster.observations)
+
 
 
 def create_global_response_file_for(observation: cluster.Observation):
@@ -681,7 +709,7 @@ def create_global_response_file_for(observation: cluster.Observation):
 
     rt.acis_set_ardlib(badpixfile=bad_pixel_file)
 
-    mask_file = print(observation.mask_file)
+    mask_file = observation.mask_file
 
     make_pcad_lis(observation)
 
@@ -697,17 +725,28 @@ def create_global_response_file_for(observation: cluster.Observation):
     binspec = 1
     clobber = True
 
+    rt.specextract.punlearn()
+
+    start_time = time.time()
+    print("Running specextract on {}".format(observation.id))
+    print("Size of region0: {}".format(observation.acisI_region_0_size))
     rt.specextract(infile=infile, outroot=outroot, weight=weight, correctpsf=correct_psf,
                    asp=pcad, combine=combine, mskfile=mask_file, bkgfile=bkg_file, bkgresp=bkg_resp,
                    badpixfile=bad_pixel_file, grouptype=group_type, binspec=binspec, clobber=clobber)
+    elapsed = time.time() - start_time
+    print("Elapsed time: {:0.2f} sec(s)".format(elapsed))
 
     infile = "{}[sky=region({})][bin pi]".format(back, observation.response_file_region_covering_ccds)
     outfile = "{}/acisI_back_region_0.pi".format(global_response_dir)
     clobber = True
 
     rt.dmextract.punlearn()
-    print("Running: dmextract infile={}, outfile={}, clobber={}".format(infile, outfile, clobber))
+    print("Running dmextract")
+    #print("Running: dmextract infile={}, outfile={}, clobber={}".format(infile, outfile, clobber))
+    start_time = time.time()
     rt.dmextract(infile=infile, outfile=outfile, clobber=clobber)
+    elapsed = time.time() - start_time
+    print("Elapsed time: {:0.2f} sec(s)".format(elapsed))
 
     rt.dmhedit.punlearn()
     infile = "{}/acisI_region_0.pi".format(global_response_dir)
@@ -737,6 +776,36 @@ def make_pcad_lis(observation: cluster.Observation):
     io.write_contents_to_file(pcad_list_string, pcad_filename, binary=False)
 
     return pcad_filename
+
+
+def do_function_on_observations_in_parallel(cluster: cluster.ClusterObj,
+                                            function=None,
+                                            num_cpus=1):
+    observation_lists = cluster.parallel_observation_lists(num_cpus)
+    num_observations = len(cluster.observations)
+
+    start_time = time.time()
+
+    for observation_list in observation_lists:
+        print("Working on {} of {} observations.".format(len(observation_list), num_observations))
+        processes = [mp.Process(target=function, args=(observation,)) for observation in observation_list]
+
+        for process in processes:
+            process.start()
+
+        for process in processes:
+            process.join()
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print("Elapsed time: {:2f} seconds".format(elapsed_time))
+
+
+def make_response_files_in_parallel(cluster: cluster.ClusterObj, num_cpus=1):
+    print("Making response files in parallel.")
+    #do_function_on_observations_in_parallel(cluster, function=create_global_response_file_for)
+    pool = mp.Pool(num_cpus)
+    pool.map(create_global_response_file_for, cluster.observations)
 
 
 def make_response_files(cluster):
@@ -774,7 +843,7 @@ def make_mask_file(observation: cluster.Observation):
     rt.dmcopy.punlearn()
     # need to check type of observation, S or I, and then generate a new string with the approriate ccd filtering
 
-    if observation.acis_type == 0: # ACIS-I
+    if observation.acis_type == 0:  # ACIS-I
         ccd_filter = "0:3"
     else:
         ccd_filter = "4:9"
@@ -798,7 +867,6 @@ def make_mask_file(observation: cluster.Observation):
 
 
 def make_cumulative_mask_file(cluster, observation):
-    from astropy.io import fits
     cumulative_mask_filename = cluster.combined_mask
 
     current_obs_mask_filename = observation.acisI_combined_mask_file
@@ -815,11 +883,31 @@ def make_cumulative_mask_file(cluster, observation):
                                                    cumulative_mask[0].shape))
         print("current mask {} shape:{}".format(current_obs_mask_filename,
                                                    current_mask[0].shape))
+        try:
+            cumulative_mask[0].data = current_mask[0].data + cumulative_mask[0].data
+        except ValueError as err:
+            print("Shapes don't match, reprojecting image.")
+            rt.reproject_image(infile=observation.acisI_combined_mask_file,
+                               matchfile=cluster.combined_mask,
+                               outfile=observation.temp_acis_comb_mask_filename)
+            io.move(observation.temp_acis_comb_mask_filename, observation.acisI_combined_mask_file)
 
-        current_mask[0].data = current_mask[0].data + cumulative_mask[0].data
+            print("Combining masks")
+            rt.dmimgcalc(infile=observation.acisI_combined_mask_file,
+                         infile2=cluster.combined_mask,
+                         operation='add',
+                         outfile=cluster.combined_mask,
+                         clobber=True)
+            #cumulative_mask[0].data += fits.open(observation.temp_acis_comb_mask_filename)[0].data
 
-        current_mask[0].data[np.where(current_mask[0].data > 1)] = 1
-        current_mask.writeto(cumulative_mask_filename, overwrite=True)
+            cumulative_mask[0].data = fits.open(cluster.combined_mask)[0].data
+        cumulative_mask[0].data[np.where(cumulative_mask[0].data > 1)] = 1
+        cumulative_mask.writeto(cumulative_mask_filename, overwrite=True)
+
+
+def reproject(infile=None, matchfile=None, outfile=None, overwrite=False):
+    rt.reproject_image.punlearn()
+    rt.reproject_image(infile=infile, matchfile=matchfile, outfile=outfile, clobber=overwrite)
 
 
 def make_acisI_and_back_for(observation, cluster):
@@ -880,10 +968,85 @@ def run_ds9_for_master_crop(cluster):
     subprocess.run([ds9_arguments], shell=True)
 
 
-def stage_4(cluster: cluster.ClusterObj):
+def stage_4_parallel(cluster: cluster.ClusterObj):
+    print("Making observation masks.")
+    do_function_on_observations_in_parallel(cluster, function=make_masks_for)
 
-    from astropy.io import fits
-    # This portion of the pypeline 
+    print("Making the cumulative mask file.")
+    make_cumulative_mask(cluster)
+
+
+def make_cumulative_mask(cluster: cluster.ClusterObj):
+    cumulative_mask_filename = cluster.combined_mask
+    cumulative_mask = np.zeros(fits.open(cumulative_mask_filename)[0].data.shape)
+
+    for observation in cluster.observations:
+        current_obs_mask_filename = observation.acisI_combined_mask_file
+        current_mask = observation.acisI_combined_mask
+        try:
+            cumulative_mask += current_mask
+        except ValueError as err:
+            print("Shapes don't match, reprojecting image.")
+            rt.reproject_image(infile=observation.acisI_combined_mask_file,
+                               matchfile=cluster.combined_mask,
+                               outfile=observation.temp_acis_comb_mask_filename)
+            io.move(observation.temp_acis_comb_mask_filename, observation.acisI_combined_mask_file)
+            current_mask = fits.open(observation.acisI_combined_mask_file)
+
+            print("Combining masks")
+            cumulative_mask += current_mask
+
+    # write any val > 1 = 1
+
+    if not io.file_exists(cumulative_mask_filename):
+        print("Cumulative mask file not found. Creating it.")
+        cumulative_mask = fits.open(current_obs_mask_filename)
+        cumulative_mask.writeto(cumulative_mask_filename)
+    else:
+        current_mask = fits.open(current_obs_mask_filename)
+        cumulative_mask = fits.open(cumulative_mask_filename)
+
+
+        cumulative_mask[0].data[np.where(cumulative_mask[0].data > 1)] = 1
+        cumulative_mask.writeto(cumulative_mask_filename, overwrite=True)
+
+def make_energy_filtered_image(observation: cluster.Observation):  # Energies in eV
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=observation.cropped_clean_infile_string,
+              outfile=observation.temp_acis_comb_filename,
+              clobber=True)
+
+    print("ObsID: {}\t- Extracting just 0.7keV - 8keV.".format(observation.id))
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=observation.temporary_acis_combined_energy_filtered_infile_string,
+              outfile=observation.acisI_comb_img,
+              clobber=True)
+
+    io.delete(observation.temp_acis_comb_filename)
+
+
+def make_energy_filtered_background(observation: cluster.Observation):
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=observation.cropped_background_infile_string,
+              outfile=observation.temp_back_comb_filename,
+              clobber=True)
+
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=observation.temporary_back_combined_energy_filtered_infile_string,
+              outfile=observation.backI_comb_img,
+              clobber=True)
+
+    io.delete(observation.temp_back_comb_filename)
+
+def make_masks_for(observation: cluster.Observation):
+    print("Making masks for: {}".format(observation.id))
+    make_energy_filtered_image(observation)
+    make_energy_filtered_background(observation)
+    make_mask_file(observation)
+
+
+
+def stage_4(cluster: cluster.ClusterObj):
     combined_dir = cluster.combined_directory
 
     io.make_directory(combined_dir)
@@ -952,6 +1115,7 @@ def create_combined_images(cluster):
     while not good_crop:
         completed_obs = 0
         for obsid in cluster.observation_ids:
+            observation = cluster.observation(obsid)
             print("Working on observation id {obsid}.".format(obsid=obsid))
 
             obs_img = fits.open("{combined_dir}/acisI_comb_img-{obsid}.fits".format(
@@ -965,16 +1129,12 @@ def create_combined_images(cluster):
 
             if counts_image.shape != obs_img[0].data.shape:
                 print("Padding the observation in the periphery to match dimensions.")
-                counts_image, obs_img[0].data = do.make_sizes_match(counts_image, obs_img[0].data)
-
-                #
-                # # make use of the make_sizes_match()
-                # print(
-                #     'The shapes don\'t match. Remake the {master_crop} in DS9 and rerun this step of the pypeline.'.format(
-                #         master_crop=cluster.master_crop_file))
-                # # raise
-                # run_ds9_for_master_crop(cluster)
-                # break
+                io.copy(observation.acisI_combined_image_filename, observation.temp_acis_comb_filename)
+                rt.reproject_image(infile=observation.temp_acis_comb_filename,
+                                   matchfile=cluster.combined_mask,
+                                   outfile=observation.acisI_combined_image_filename,
+                                   clobber=True)
+                obs_img = fits.open(observation.acisI_combined_image_filename)
 
             counts_image += obs_img[0].data
 
@@ -982,16 +1142,27 @@ def create_combined_images(cluster):
 
             print("Type of t_obs is {}".format(type(t_obs)))
 
-            back_img = fits.open("{combined_dir}/backI_comb_img-{obsid}.fits".format(
-                combined_dir=cluster.combined_directory,
-                obsid=obsid
-            ))
+            back_img = fits.open(observation.backI_comb_img)
 
             t_back = back_img[0].header['EXPOSURE']
 
             print("Type of t_back is {}".format(type(t_back)))
             print("Type of back_img[0].data = {}".format(back_img[0].data.dtype))
-            back_rescale += (t_obs / t_back) * (back_img[0].data.astype(float))
+            try:
+                back_rescale += (t_obs / t_back) * (back_img[0].data.astype(float))
+            except ValueError as err:
+                print("Shapes don't match. Reprojecting.")
+                rt.reproject_image(infile=observation.backI_comb_img,
+                                   matchfile=cluster.combined_mask,
+                                   outfile=observation.backI_comb_temp_img,
+                                   clobber=True)
+
+                io.move(observation.backI_comb_temp_img, observation.backI_comb_img)
+
+                back_img = fits.open(observation.backI_comb_img)
+
+                back_rescale += (t_obs / t_back) * (back_img[0].data.astype(float))
+
             completed_obs += 1
 
         if completed_obs == len(cluster.observation_ids):
@@ -1181,6 +1352,16 @@ def run_stage_2(cluster):
     return
 
 
+def run_stage_2_parallel(cluster, args):
+    print("Starting Stage 2: {}".format(cluster.name))
+    check_for_required_stage_2_files(cluster)
+    sources_and_light_curves_parallel(cluster, args)
+    make_nosrc_xray_sb(cluster)
+    lightcurves_with_exclusion(cluster)
+
+    return
+
+
 def finish_stage_2(cluster: cluster.ClusterObj):
     finish_str = """Stage 2 complete -  Point sources removed -> {xray_sb_nosrc}.
                                         High energy events filtered.""".format(
@@ -1213,8 +1394,23 @@ def print_stage_3_prep(cluster: cluster.ClusterObj):
     print(prep_str)
 
 
-def run_stage_3(cluster: cluster.ClusterObj):
-    make_response_files(cluster)
+def print_stage_3_file_message(cluster: cluster.ClusterObj):
+    print("Need the response region file. Please check readme stage 3 for details.")
+
+
+def check_for_required_stage_3_files(cluster: cluster.ClusterObj):
+    all_files = True
+    for observation in cluster.observations:
+        if not io.file_exists(observation.response_file_region_covering_ccds):
+            io.print_red("Cannot find: {}".format(observation.response_file_region_covering_ccds))
+            all_files = False
+
+    return all_files
+
+
+def run_stage_3(cluster: cluster.ClusterObj, num_cpus=1):
+    check_for_required_stage_3_files(cluster)
+    make_response_files_in_parallel(cluster, num_cpus)
 
 
 def finish_stage_3(cluster: cluster.ClusterObj):
@@ -1268,8 +1464,8 @@ def print_stage_5_prep(cluster: cluster.ClusterObj):
     print(prep_str)
 
 
-def run_stage_5(cluster: cluster.ClusterObj):
-    acb.fitting_preparation(cluster)
+def run_stage_5(cluster: cluster.ClusterObj, args=None):
+    acb.fitting_preparation(cluster, args)
 
 
 def finish_stage_5(cluster: cluster.ClusterObj):
@@ -1332,7 +1528,7 @@ def finish_stage_tmap(cluster: cluster.ClusterObj):
     pass
 
 
-def start_from_last(cluster: cluster.ClusterObj):
+def start_from_last(cluster: cluster.ClusterObj, args=None):
     print("Continuing {}".format(cluster.name))
 
     last_stage_completed = int(cluster.last_step_completed)
@@ -1346,13 +1542,13 @@ def start_from_last(cluster: cluster.ClusterObj):
         return
 
     elif last_stage_completed == Stage.one:
-        run_stage_2(cluster)
+        run_stage_2_parallel(cluster, args)
         cluster.last_step_completed = Stage.two.value
         finish_stage_2(cluster)
         return
 
     elif last_stage_completed == Stage.two:
-        run_stage_3(cluster)
+        run_stage_3(cluster, args.num_cpus)
         cluster.last_step_completed = Stage.three.value
         finish_stage_3(cluster)
         return
@@ -1364,7 +1560,7 @@ def start_from_last(cluster: cluster.ClusterObj):
         return
 
     elif last_stage_completed == Stage.four:
-        run_stage_5(cluster)
+        run_stage_5(cluster, args)
         cluster.last_step_completed = Stage.five.value
         finish_stage_5(cluster)
         return
