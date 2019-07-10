@@ -48,7 +48,7 @@ def process_commandline_arguments(cluster_obj):
                 print("Error finding cluster configuration file. Try passing the full path to the file.")
                 return
         if args.find_sources:
-            ciao.find_sources(cluster_obj)
+            ciao.find_sources(cluster_obj, ecf=args.ecf, energy=args.energy)
 
     if args.cont:
         if cluster_obj is None:
@@ -56,17 +56,22 @@ def process_commandline_arguments(cluster_obj):
             if cluster_obj is None:
                 print("Cannot find a current working cluster.")
                 exit(-1)
-        ciao.start_from_last(cluster_obj)
+
+        if args.parallel and cluster_obj.last_step_completed == '1':
+            ciao.run_stage_2_parallel(cluster_obj, args)
+        else:
+            ciao.start_from_last(cluster_obj, args)
 
     return cluster_obj
 
 
 def get_arguments():
+    from multiprocessing import cpu_count as max_cpu
     help_str = """
     pypeline help string
     """
 
-    prog = 'pypeline'
+    prog = 'clusterpyxt'
 
     # logger.debug("Getting commandline arguments.")
     parser = argparse.ArgumentParser(description=help_str, prog=prog)
@@ -87,7 +92,12 @@ def get_arguments():
     parser.add_argument('--cluster_name', '-n', dest='name', action='store', default=None)
     parser.add_argument('--obsids', dest='obsids', action='store', nargs='+', default=None)
     parser.add_argument('--abundance', dest='abundance', action='store', default=None)
-    parser.add_argument('--find_sources', dest='find_sources', action='store', default=False)
+    parser.add_argument('--find_sources', dest='find_sources', action='store_true', default=False)
+    parser.add_argument('--ecf', dest='ecf', action='store', default=0.3)
+    parser.add_argument('--energy', dest='energy', action='store', default=0.3)
+    parser.add_argument('--parallel', dest='parallel', action='store_true', default=False)
+    parser.add_argument('--num_cpus', dest='num_cpus', action='store',type=int, default=max_cpu())
+    parser.add_argument('--resolution', dest='resolution', action='store', default=2)
 
     args = parser.parse_args()
 

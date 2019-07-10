@@ -59,13 +59,13 @@ class Observation:
             self.ccds = self.get_ccds()
             self.acis_I_chips, self.acis_S_chips = self.get_acis_I_and_S_chips()
 
-            if len(self.acis_S_chips) > 0:
-                print("Observation {} has ACIS-S data that is not yet supported. "
-                      "Feel free to implement and submit a pull request!".format(self.id))
-                if len(self.acis_I_chips) > 0:
-                    print("ACIS-I chips to be used:")
-                    for ccd in self.acis_I_chips:
-                        print(ccd)
+            # if len(self.acis_S_chips) > 0:
+            #     print("Observation {} has ACIS-S data that is not yet supported. "
+            #           "Feel free to implement and submit a pull request!".format(self.id))
+            #     # if len(self.acis_I_chips) > 0:
+                #     print("ACIS-I chips to be used:")
+                #     for ccd in self.acis_I_chips:
+                #         print(ccd)
         except FileNotFoundError:
             #print("Observation {} not yet downloaded".format(self.id))
             pass
@@ -206,6 +206,16 @@ class Observation:
         return self.cluster.exclude_file
 
     @property
+    def cropped_clean_infile_string(self):
+        return "{}[sky=region({})]".format(self.clean,
+                                           self.cluster.master_crop_file)
+
+    @property
+    def cropped_background_infile_string(self):
+        return "{}[sky=region({})]".format(self.back,
+                                           self.cluster.master_crop_file)
+
+    @property
     def oif_filename(self):
         return io.get_path("{obs_dir}/oif.fits".format(obs_dir=self.directory))
 
@@ -297,6 +307,10 @@ class Observation:
             obsid=self.id))
 
     @property
+    def acisI_combined_image_filename(self):
+        return self.acisI_comb_img
+
+    @property
     def acisI_combined_image(self):
         if not hasattr(self, "_acisI_comb_image"):
             self._acisI_combined_image = io.get_pixel_values(self.acisI_comb_img)
@@ -313,6 +327,13 @@ class Observation:
     @property
     def backI_comb_img(self):
         return io.get_path("{combined_dir}/backI_comb_img-{obsid}.fits".format(
+            combined_dir=self.combined_directory,
+            obsid=self.id)
+        )
+
+    @property
+    def backI_comb_temp_img(self):
+        return io.get_path("{combined_dir}/backI_comb_temp_img-{obsid}.fits".format(
             combined_dir=self.combined_directory,
             obsid=self.id)
         )
@@ -349,6 +370,17 @@ class Observation:
     def merged_back_lis(self):
         return io.get_path("{analysis_dir}/merged_back.lis".format(analysis_dir=self.analysis_directory))
 
+    def reproject_combined_mask(self, file_to_match):
+        from ciao import reproject
+        print("Reprojecting combined mask for {}".format(self.id))
+        temp_file = io.temp_filename(self.acisI_combined_mask_file)
+        reproject(infile=self.acisI_combined_mask_file,
+                  matchfile=file_to_match,
+                  outfile=temp_file,
+                  overwrite=True)
+        io.move(temp_file, self.acisI_combined_mask_file)
+        self._acisI_combined_mask = io.get_pixel_values(self.acisI_combined_mask_file)
+
     @property
     def acisI_combined_mask_file(self):
         return io.get_path("{combined_dir}/acisI_comb_mask-{obsid}.fits".format(
@@ -361,6 +393,17 @@ class Observation:
         if not hasattr(self, "_acisI_combined_mask"):
             self._acisI_combined_mask = io.get_pixel_values(self.acisI_combined_mask_file)
         return self._acisI_combined_mask
+
+    def reproject_nosrc_combined_mask(self, file_to_match):
+        from ciao import reproject
+        print("Reprojecting source removed combined mask for {}".format(self.id))
+        temp_file = io.temp_filename(self.acisI_nosrc_combined_mask_file)
+        reproject(infile=self.acisI_nosrc_combined_mask_file,
+                  matchfile=file_to_match,
+                  outfile=temp_file,
+                  overwrite=True)
+        io.move(temp_file, self.acisI_nosrc_combined_mask_file)
+        self._acisI_nosrc_combined_mask = io.get_pixel_values(self.acisI_nosrc_combined_mask_file)
 
     @property
     def acisI_nosrc_combined_mask_file(self):
@@ -397,6 +440,28 @@ class Observation:
         ))
 
     @property
+    def temp_acis_comb_filename(self):
+        return io.get_path("{combined_dir}/acis_comb_temp-{obsid}.fits".format(
+            combined_dir=self.combined_directory,
+            obsid=self.id
+        ))
+
+    @property
+    def temp_back_comb_filename(self):
+        return io.get_path("{combined_dir}/back_comb_temp-{obsid}.fits".format(
+            combined_dir=self.combined_directory,
+            obsid=self.id
+        ))
+
+    @property
+    def temporary_acis_combined_energy_filtered_infile_string(self):
+        return "{}[bin sky=4][energy=700:8000]".format(self.temp_acis_comb_filename)
+
+    @property
+    def temporary_back_combined_energy_filtered_infile_string(self):
+        return "{}[bin sky=4][energy=700:8000]".format(self.temp_back_comb_filename)
+
+    @property
     def acisI_high_energy_combined_image_file(self):
         return io.get_path("{combined_dir}/acisI_hien_comb_img-{obsid}.fits".format(
             combined_dir=self.combined_directory,
@@ -421,8 +486,9 @@ class Observation:
 
     @property
     def acisI_high_energy_temp_image(self):
-        return io.get_path("{combined_dir}/acisI_high_energy_int_img.fits".format(
-            combined_dir=self.combined_directory
+        return io.get_path("{combined_dir}/acisI_high_energy_int_img_{obsid}.fits".format(
+            combined_dir=self.combined_directory,
+            obsid=self.id
         ))
 
     @property
@@ -441,8 +507,9 @@ class Observation:
 
     @property
     def backI_high_energy_temp_image(self):
-        return io.get_path("{combined_dir}/backI_hien_int_img.fits".format(
-            combined_dir=self.combined_directory
+        return io.get_path("{combined_dir}/backI_hien_int_img_{obsid}.fits".format(
+            combined_dir=self.combined_directory,
+            obsid=self.id
         ))
 
     @property
@@ -516,10 +583,11 @@ class Observation:
 
     @property
     def source_region_filename(self):
-        return io.get_path("{obs_dir}/{obsid}_sources.reg".format(
-            obs_dir=self.directory,
-            obsid=self.id
-        ))
+        # return io.get_path("{obs_dir}/{obsid}_sources.reg".format(
+        #     obs_dir=self.directory,
+        #     obsid=self.id
+        # ))
+        return self.cluster.sources_file
 
     @property
     def bad_pixel_file(self):
@@ -680,6 +748,23 @@ class Observation:
         return io.get_path('{obs_analysis_dir}/acisI.lis'.format(
             obs_analysis_dir=self.analysis_directory)
         )
+
+    @property
+    def acisI_region_0_filename(self):
+        return io.get_path('{obs_analysis_dir}/acisI_region_0.reg'.format(obs_analysis_dir=self.analysis_directory))
+
+    @property
+    def acisI_region_0_size(self):
+        if not hasattr(self, "_acisI_region_0_size"):
+            try:
+                acisI_region_0 = io.read_contents_of_file(self.acisI_region_0_filename)
+                radius = acisI_region_0.split(',')[-1][:-2]
+                self._acisI_region_0_size = radius
+            except FileNotFoundError:
+                pass
+
+        return self._acisI_region_0_size
+
 
     def coordinates_for_scale_map_region(self, region, scale_map_regions):
         return np.where(scale_map_regions == region)
@@ -975,7 +1060,6 @@ Last Step Completed: {}""".format(self.name,
     def temp_acisI_comb(self):
         return io.get_path("{combined_dir}/acisI_comb_img_int.fits".format(combined_dir=self.combined_directory))
 
-
     @property
     def temp_backI_comb(self):
         return io.get_path("{combined_dir}/backI_comb_img_int.fits".format(combined_dir=self.combined_directory))
@@ -1081,7 +1165,7 @@ Last Step Completed: {}""".format(self.name,
     @property
     def scale_map_mask(self):
         if not hasattr(self, "_scale_map_mask"):
-            scale_map = self.scale_map
+            scale_map = np.copy(self.scale_map)
             scale_map[np.nonzero(scale_map)] = 1
             self._scale_map_mask = scale_map
 
@@ -1417,8 +1501,8 @@ Last Step Completed: {}""".format(self.name,
         return io.get_path('{output_dir}/{name}_entropy.fits'.format(
             output_dir=self.output_dir,
             name=self.name
-        ))    
-    
+        ))
+
     @property
     def temperature_map_filename(self):
         return io.get_path('{output_dir}/{cluster_name}_temperature_map.fits'.format(
@@ -1427,8 +1511,18 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def temperature_map_temp_filename(self):
+        return io.get_path('{output_dir}/{cluster_name}_temp_temperature_map.fits'.format(
+            output_dir=self.output_dir,
+            cluster_name=self.name
+        ))
+
+    @property
     def temperature_map(self):
-        return io.get_pixel_values(self.temperature_map_filename)
+        if not hasattr(self, "_temperature_map"):
+            self._temperature_map = io.get_pixel_values(self.temperature_map_filename)
+
+        return self._temperature_map
 
     @property
     def temperature_map_header(self):
@@ -1475,8 +1569,22 @@ Last Step Completed: {}""".format(self.name,
         return self._cropped_nosrc_xray_surface_brightness
 
     @property
+    def density_map(self):
+        if not hasattr(self, "_density_map"):
+            self._density_map = io.get_pixel_values(self.density_map_filename)
+
+        return self._density_map
+
+    @property
     def density_map_filename(self):
         return io.get_path("{output_dir}/{name}_density.fits".format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
+
+    @property
+    def density_map_temp_filename(self):
+        return io.get_path("{output_dir}/{name}_temp_density.fits".format(
             output_dir=self.output_dir,
             name=self.name
         ))
@@ -1488,6 +1596,13 @@ Last Step Completed: {}""".format(self.name,
             output_dir=self.output_dir,
             name=self.name
         ))
+
+    def parallel_observation_lists(self, num_cpus=1):
+        import multiprocessing as mp
+        num_cpus = num_cpus
+        num_observations = len(self.observations)
+        observation_lists = np.array_split(self.observations, (num_observations // num_cpus)+1)
+        return observation_lists
 
     @property
     def xray_surface_brightness_nosrc_cropped_filename(self):
@@ -1645,90 +1760,96 @@ Last Step Completed: {}""".format(self.name,
         ))
 
         #setting the model for each observation
+        continue_fit = False
         for i in range(number_of_observations):
+            continue_fit = True
             sherpa.set_source(i, sherpa.xsphabs.phabs*sherpa.xsapec.apec)
 
-        print("{region}:\tCreating the model and defining initial fit parameters".format(region=region_number))
-        phabs.nH = self.hydrogen_column_density
-        apec.kT = 8.0
-        apec.Abundanc = self.abundance
-        apec.redshift = self.redshift
-        apec.norm = 1.0
+        if continue_fit:
+            print("{region}:\tCreating the model and defining initial fit parameters".format(region=region_number))
+            phabs.nH = self.hydrogen_column_density
+            apec.kT = 8.0
+            apec.Abundanc = self.abundance
+            apec.redshift = self.redshift
+            apec.norm = 1.0
 
-        print("{region}:\tFreezing and thawing parameters".format(region=region_number))
-        sherpa.freeze(phabs.nH, apec.Abundanc, apec.redshift)
-        sherpa.thaw(apec.kT, apec.norm)
+            print("{region}:\tFreezing and thawing parameters".format(region=region_number))
+            sherpa.freeze(phabs.nH, apec.Abundanc, apec.redshift)
+            sherpa.thaw(apec.kT, apec.norm)
 
-        sherpa.fit()
-        sherpa.conf()
+            print("Fitting region: {}".format(region_number))
+            sherpa.fit()
+            sherpa.conf()
 
-        fit_results = sherpa.get_fit_results()
-        confidences = sherpa.get_conf_results()
+            fit_results = sherpa.get_fit_results()
+            confidences = sherpa.get_conf_results()
 
-        # parameter names given in kT, Norm order
-        T = confidences.parvals[0]
-        T_err_plus = confidences.parmaxes[0]
-        T_err_minus = confidences.parmins[0]
-        norm = confidences.parvals[1]
-        norm_err_plus = confidences.parmaxes[1]
-        norm_err_minus = confidences.parmins[1]
-        reduced_x2 = fit_results.rstat
-        observations = ','.join(good_observations)
+            # parameter names given in kT, Norm order
+            T = confidences.parvals[0]
+            T_err_plus = confidences.parmaxes[0]
+            T_err_minus = confidences.parmins[0]
+            norm = confidences.parvals[1]
+            norm_err_plus = confidences.parmaxes[1]
+            norm_err_minus = confidences.parmins[1]
+            reduced_x2 = fit_results.rstat
+            observations = ','.join(good_observations)
 
-        print("{region}:\tObservations used:\t{obs}\n"
-              "Reduced X2:\t{rx2}\n"
-              "Temperature:\t{T} keV\n".format(region=region_number,
-                                               obs=good_observations,
-                                               rx2=reduced_x2,
-                                               T=T))
+            print("{region}:\tObservations used:\t{obs}\n"
+                  "Reduced X2:\t{rx2}\n"
+                  "Temperature:\t{T} keV\n".format(region=region_number,
+                                                   obs=good_observations,
+                                                   rx2=reduced_x2,
+                                                   T=T))
 
-        if T_err_plus == None:
-            self.write_bad_fits_to_file(region=int(region_number),
-                                        T=T,
-                                        T_err_plus=T_err_plus,
-                                        T_err_minus=T_err_minus,
-                                        norm=norm,
-                                        norm_err_plus=norm_err_plus,
-                                        norm_err_minus=norm_err_minus,
-                                        reduced_x2=reduced_x2,
-                                        observation_ids=observations
-                                        )
+            if T_err_plus == None:
+                self.write_bad_fits_to_file(region=int(region_number),
+                                            T=T,
+                                            T_err_plus=T_err_plus,
+                                            T_err_minus=T_err_minus,
+                                            norm=norm,
+                                            norm_err_plus=norm_err_plus,
+                                            norm_err_minus=norm_err_minus,
+                                            reduced_x2=reduced_x2,
+                                            observation_ids=observations
+                                            )
+            else:
+                self.write_best_fits_to_file(region=int(region_number),
+                                             T=T,
+                                             T_err_plus=T_err_plus,
+                                             T_err_minus=T_err_minus,
+                                             norm=norm,
+                                             norm_err_plus=norm_err_plus,
+                                             norm_err_minus=norm_err_minus,
+                                             reduced_x2=reduced_x2,
+                                             observation_ids=observations)
+
+        # cluster.write_all_fits_to_file(int(region_number),
+            #                                fit_results,
+            #                                confidences,
+            #                                cluster.observations)
+
+            for data_pi in data_pi_files:
+                io.delete(data_pi)
+            for background_pi in background_pi_files:
+                io.delete(background_pi)
+            io.delete(self.spec_lis(region_number))
+
+            print("{region}:\tFinished".format(region=region_number))
+
+            if output_pdf:
+                sherpa.plot_fit()
+                pychips.set_preference('export.orientation', 'landscape')
+                pychips.set_preference('export.clobber', 'True')
+                pychips.set_preference('export.fittopage', 'True')
+                pychips.print_window("{acb_dir}/{region}.pdf".format(
+                    acb_dir=self.acb_dir,
+                    region=region_number)
+                )
+
+            return "{region}: {temperature} keV".format(region=region_number,
+                                                        temperature=T)
         else:
-            self.write_best_fits_to_file(region=int(region_number),
-                                         T=T,
-                                         T_err_plus=T_err_plus,
-                                         T_err_minus=T_err_minus,
-                                         norm=norm,
-                                         norm_err_plus=norm_err_plus,
-                                         norm_err_minus=norm_err_minus,
-                                         reduced_x2=reduced_x2,
-                                         observation_ids=observations)
-
-    # cluster.write_all_fits_to_file(int(region_number),
-        #                                fit_results,
-        #                                confidences,
-        #                                cluster.observations)
-
-        for data_pi in data_pi_files:
-            io.delete(data_pi)
-        for background_pi in background_pi_files:
-            io.delete(background_pi)
-        io.delete(self.spec_lis(region_number))
-
-        print("{region}:\tFinished".format(region=region_number))
-
-        if output_pdf:
-            sherpa.plot_fit()
-            pychips.set_preference('export.orientation', 'landscape')
-            pychips.set_preference('export.clobber', 'True')
-            pychips.set_preference('export.fittopage', 'True')
-            pychips.print_window("{acb_dir}/{region}.pdf".format(
-                acb_dir=self.acb_dir,
-                region=region_number)
-            )
-
-        return "{region}: {temperature} keV".format(region=region_number,
-                                                    temperature=T)
+            io.print_red("No obs to fit for region {}".format(region_number))
 
 
     @property
@@ -1785,6 +1906,8 @@ def read_cluster_data(filename):
         cluster.signal_to_noise = 50
 
     cluster.observations = [Observation(obsid=x, cluster=cluster) for x in cluster.observation_ids]
+
+    print("Loaded {}".format(cluster))
 
     return cluster
 
