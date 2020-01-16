@@ -1,4 +1,8 @@
 ![](docs/graphics/MainGraphic_700x.jpg)
+## Current beta version for CIAO 4.12
+Introducing the new graphical user interface (GUI) for ClusterPyXT!
+
+To use this version of ClusterPyXT please install CIAO-4.12 using conda as outlined by [here](http://cxc.harvard.edu/ciao/download/conda.html). This version of `ClusterPyXT` requires python 3.6 or greater. See below for further details on the `CIAO` installation.
 
 ## Introduction
 ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature maps, pressure maps, surface brightness maps, and density maps. It is open source and under active development. Please feel free to contribute! See the contribution section below for more details. (Even if you're new to everything!)
@@ -10,10 +14,10 @@ ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature
 This version of `ClusterPyXT` requires `CIAO-4.9` or later (4.11 recommended). The full calibration database (CALDB) is a requirement as well and can be installed with CIAO. 
 
 ### CIAO Installation
-These instructions are for `CIAO 4.11`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script.
+These instructions are for `CIAO 4.12`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/conda.html). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script. Additionally, it is recommended you install the latest version of `Python` during installation. `Python 3.6` is required at a minimum.
 
-Another requirement for `ClusterPyXT` is the `astropy` python library within the `CIAO` environment. `CIAO 4.11` allows for the easy installation of this library. 
-After installation, start the `CIAO` environment and run `pip3 install astropy`. 
+Another requirement for `ClusterPyXT` is the `astropy` python library within the `CIAO` environment. `CIAO 4.12` allows for the easy installation of this library. 
+After installation, start the `CIAO` environment and run `conda install astropy`. 
 
 ### Download ClusterPyXT
 To download ClusterPyXT, simply run `git clone https://github.com/bcalden/ClusterPyXT.git`.
