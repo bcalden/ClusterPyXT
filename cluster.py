@@ -1560,6 +1560,10 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def smoothed_xray_sb_cropped_nosrc_filename(self):
+        return io.get_path(f"{self.output_dir}/{self.name}_acb_xray_sb_nosrc_cropped.fits")
+
+    @property
     def cropped_nosrc_xray_surface_brightness(self):
         if not hasattr(self, "_cropped_nosrc_xray_surface_brightness"):
             self._cropped_nosrc_xray_surface_brightness = \
@@ -1595,6 +1599,10 @@ Last Step Completed: {}""".format(self.name,
             output_dir=self.output_dir,
             name=self.name
         ))
+
+    @property
+    def xray_surface_brightness_nosrc_header(self):
+        return fits.open(self.xray_surface_brightness_nosrc_filename)[0].header
 
     def parallel_observation_lists(self, num_cpus=1):
         import multiprocessing as mp
@@ -1822,7 +1830,7 @@ Last Step Completed: {}""".format(self.name,
                                              reduced_x2=reduced_x2,
                                              observation_ids=observations)
 
-        # cluster.write_all_fits_to_file(int(region_number),
+    # cluster.write_all_fits_to_file(int(region_number),
             #                                fit_results,
             #                                confidences,
             #                                cluster.observations)
@@ -1852,8 +1860,7 @@ Last Step Completed: {}""".format(self.name,
                                                         temperature=T)
         else:
             io.print_red("No obs to fit for region {}".format(region_number))
-
-
+   
     @property
     def signal_to_noise_threshold(self):
         return 900

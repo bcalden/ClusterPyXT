@@ -1484,21 +1484,22 @@ def print_stage_spectral_fits_prep(cluster: cluster.ClusterObj):
 
     Next, with CIAO running, simply run:
 
-        python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini
+        python spectral.py --parallel --resolution 2 -c {name}
 
     The resolution parameter can be set to either 1 - low resolution, 2 - medium resolution, or 3 - high resolution.
     If the parallel flag indicates to run in parallel. If the number of cpus is not set (--num_cpus), ClusterPyXT uses
     the total number of cores on your machine. 
 
     If you must restart the fitting for any reason, simply add the --continue flag in order to not redo any of the fits.""".format(
-        cluster_config=cluster.configuration_filename
+        cluster_config=cluster.configuration_filename,
+        name=cluster.name
     )
     print(prep_str)
 
 
 def run_stage_spectral_fits(cluster: cluster.ClusterObj):
     print("Not implemented yet. Complete spectral fits by running:"
-          "python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini")
+          "python spectral.py --parallel --resolution 2 -c {name}".format(name=cluster.name))
 
 
 def finish_stage_spectral_fits(cluster: cluster.ClusterObj):

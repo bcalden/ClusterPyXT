@@ -9,7 +9,6 @@ import multiprocessing as mp
 import ciao_contrib.runtool as rt
 import ciao
 
-
 def get_arguments():
     help_str = """
     This part of the pypeline creates all of the adaptive circular binned (acb) files
@@ -1038,7 +1037,7 @@ def eff_times_to_fits(clstr: cluster.ClusterObj):
 
 def make_density_map(clstr: cluster.ClusterObj):
 
-    xray_sb_fits = fits.open(clstr.xray_surface_brightness_nosrc_filename)
+    xray_sb_fits = fits.open(clstr.smoothed_xray_sb_cropped_nosrc_filename)
     xray_sb_header = xray_sb_fits[0].header
 
     xray_sb = xray_sb_fits[0].data
@@ -1073,20 +1072,14 @@ def reproject_temperature_map(clstr: cluster.ClusterObj):
 
 
 def get_matching_density_and_temperature_maps(clstr: cluster.ClusterObj):
+    if not io.file_exists(clstr.density_map_filename):
+        make_density_map(clstr)
 
-    n = make_density_map(clstr)
-    T = clstr.temperature_map
+    n, T = make_sizes_match(input_image=clstr.density_map_filename, second_image=clstr.temperature_map_filename)
+    # n = clstr.density_map
+    # T = clstr.temperature_map
 
-    if n.shape == T.shape:
-        return n, T
-
-    mask = clstr.combined_mask_data
-
-    if n.shape != mask.shape:
-        n = reproject_density_map(clstr)
-
-    if T.shape != mask.shape:
-        T = reproject_temperature_map(clstr)
+    # n, T = make_sizes_match(n, T)
 
     return n, T
 
@@ -1116,6 +1109,73 @@ def make_entropy_map(clstr: cluster.ClusterObj):
 
     fits.writeto(clstr.entropy_map_filename, norm_K, header=clstr.temperature_map_header, overwrite=True)  
     
+def reproject(infile=None, matchfile=None, outfile=None, overwrite=False):
+    rt.reproject_image.punlearn()
+    rt.reproject_image(infile=infile, matchfile=matchfile, outfile=outfile, clobber=overwrite)
+
+
+def repro_filename(original_filename):
+    split_filename = original_filename.split('.')
+    split_filename[-2] += "_repro"
+    return ".".join(split_filename)
+
+def make_smoothed_xray_map(clstr: cluster.ClusterObj):
+    scale_map = clstr.scale_map_file
+    sb_map = clstr.xray_surface_brightness_nosrc_cropped_filename
+
+    print(f"Using {clstr.scale_map_file} and {clstr.xray_surface_brightness_nosrc_cropped_filename}")
+
+    sb_map, scale_map = make_sizes_match(input_image=clstr.xray_surface_brightness_nosrc_cropped_filename, second_image=clstr.scale_map_file)
+
+    #sb_map, scale_map = do.make_sizes_match(sb_map, scale_map)
+
+    max_x, max_y = sb_map.shape
+
+    new_map = np.zeros(scale_map.shape)
+
+    for x in range(max_x):
+        for y in range(max_y):
+            if scale_map[x,y]:
+                radius_map = generate_radius_map(x, y, max_x, max_y)
+                radius_mask = radius_map <= scale_map[x,y]
+                new_map[x,y] = sb_map[radius_mask].mean()
+    fits.writeto(clstr.smoothed_xray_sb_cropped_nosrc_filename, new_map, header=clstr.scale_map_header, overwrite=True)
+    print(f"{clstr.smoothed_xray_sb_cropped_nosrc_filename} written. X-ray SB ACB map complete.")
+
+def make_sizes_match(input_image="", second_image=""):
+    input_image_data = fits.open(input_image)[0].data
+    second_image_data = fits.open(second_image)[0].data
+
+    image_file = input_image
+    second_file = second_image
+
+    if input_image_data.shape != second_image_data.shape:
+        print(f'input_image shape = {input_image_data.shape}')
+        print(f'second_image shape = {second_image_data.shape}')
+        
+        if input_image_data.size > second_image_data.size:
+            print(f"Reprojecting {second_image}")
+            reprojected_filename = repro_filename(second_file)
+            print(f"reproject(infile={second_image}, matchfile={input_image}, outfile={reprojected_filename}, overwrite=True)")
+            reproject(infile=second_image,
+                      matchfile=input_image,
+                      outfile=reprojected_filename,
+                      overwrite=True)
+            second_file = reprojected_filename
+        else:
+            print(f'reprojecting {input_image}')
+            reprojected_filename = repro_filename(input_image)
+            print(f"reproject(infile={input_image}, matchfile={second_image}, outfile={reprojected_filename}, overwrite=True)")
+            reproject(infile=input_image,
+                      matchfile=second_image,
+                      outfile=reprojected_filename,
+                      overwrite=True)               
+            image_file = reprojected_filename
+
+    first, second = fits.open(image_file)[0].data, fits.open(second_file)[0].data
+    print(f"{first.shape} == {second.shape}")
+    return first, second
+
 
 if __name__ == '__main__':
     args, parser = get_arguments()
