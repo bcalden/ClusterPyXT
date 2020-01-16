@@ -11,7 +11,6 @@ import logging
 try:
     from ciao_contrib import runtool as rt
     from sherpa.astro import ui as sherpa
-    import pychips
 except ImportError:
     print("Unable to load CIAO. Fitting calls will fail")
     rt = None
@@ -1836,15 +1835,18 @@ Last Step Completed: {}""".format(self.name,
 
             print("{region}:\tFinished".format(region=region_number))
 
+
+            ### TODO update the below code to exclude pychips
             if output_pdf:
-                sherpa.plot_fit()
-                pychips.set_preference('export.orientation', 'landscape')
-                pychips.set_preference('export.clobber', 'True')
-                pychips.set_preference('export.fittopage', 'True')
-                pychips.print_window("{acb_dir}/{region}.pdf".format(
-                    acb_dir=self.acb_dir,
-                    region=region_number)
-                )
+                print("Update to exclude pychips")
+            #     sherpa.plot_fit()
+            #     pychips.set_preference('export.orientation', 'landscape')
+            #     pychips.set_preference('export.clobber', 'True')
+            #     pychips.set_preference('export.fittopage', 'True')
+            #     pychips.print_window("{acb_dir}/{region}.pdf".format(
+            #         acb_dir=self.acb_dir,
+            #         region=region_number)
+            #     )
 
             return "{region}: {temperature} keV".format(region=region_number,
                                                         temperature=T)

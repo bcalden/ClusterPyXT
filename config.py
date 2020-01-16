@@ -2,6 +2,8 @@ import os
 import cluster
 import pypeline_io as io
 import configparser
+import glob
+import pypeline_io as io
 
 CONFIG_FILENAME = 'pypeline_config.ini'
 
@@ -137,3 +139,21 @@ def initialize_pypeline():
             raise
 
     #add_ciao_to_path(system_config['ciao_directory'])
+
+def get_cluster_configs(data_dir=data_directory()):
+    dirs = os.listdir(data_dir)
+    configuration_files = []
+    cluster_names = []
+    for directory in dirs:
+        #print("{}/{}".format(data_dir,directory))
+        config_file = glob.glob("{data_dir}/{directory}/*_pypeline_config.ini".format(
+            data_dir=data_dir,
+            directory=directory
+        ))
+        if config_file:
+            configuration_files.append(config_file[0])
+            cluster_names.append(get_cluster_name_from_config_file(config_file[0]))
+    return list(zip(cluster_names, configuration_files))
+
+def get_cluster_name_from_config_file(config_file):
+    return os.path.basename(os.path.split(config_file)[0])
