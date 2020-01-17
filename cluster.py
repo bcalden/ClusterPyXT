@@ -903,7 +903,7 @@ class ClusterObj:
 
     def get_cluster_info_from_user(self):
         self.name = io.get_user_input("Enter the cluster name: ", "cluster name")
-        self.data_directory = os.path.normpath(config.data_directory())
+        self.data_directory = os.path.normpath(config.sys_config.data_directory)
 
         self.observation_ids = get_observation_ids()
         self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
@@ -1930,7 +1930,7 @@ def load_cluster(cluster_name: str):
 
 
 def get_cluster_config(clstr_name):
-    data_dir = config.data_directory()
+    data_dir = config.sys_config.data_directory
     config_file = io.get_filename_matching('{0}/{1}/{1}_pypeline_config.ini'.format(data_dir, clstr_name))
 
     if len(config_file) >= 1:

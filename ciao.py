@@ -137,7 +137,7 @@ def reprocess(cluster, observation, acis_gain, background_gain, acis_id):
     infile = "{dir}/back_ccd{acis_id}.fits".format(dir=local_path,
                                                    acis_id=acis_id)
 
-    gainfile = "{ciao_dir}/CALDB/data/chandra/acis/det_gain/{acis_gain}".format(ciao_dir=config.ciao_directory(),
+    gainfile = "{ciao_dir}/CALDB/data/chandra/acis/det_gain/{acis_gain}".format(ciao_dir=config.sys_config.ciao_directory,
                                                                                 acis_gain=acis_gain)
     print("Reprocessing {cluster}/{observation}/{acis_id}".format(cluster=cluster.name,
                                                                   observation=observation,
@@ -1583,7 +1583,7 @@ def start_from_last(cluster: cluster.ClusterObj, args=None):
 def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
     clstr = cluster.ClusterObj(name=name, observation_ids=obsids, abundance=abundance,
                                redshift=redshift, hydrogen_column_density=nH,
-                               data_directory=config.data_directory())
+                               data_directory=config.sys_config.data_directory)
     print('Making initial cluster directory: {}'.format(clstr.directory))
     io.make_directory(clstr.directory)
     io.make_initial_directories(clstr)
@@ -1592,7 +1592,7 @@ def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
 
 def automated_cluster_init(batch_file):
     print("Automated cluster initialization using: {batch_file}".format(batch_file=batch_file))
-    data_directory = config.data_directory()
+    data_directory = config.sys_config.data_directory
     csv_clusters = io.get_cluster_info_from_csv(batch_file)
     for clstr in csv_clusters:
         cluster_obj = cluster.ClusterObj(name=clstr['name'],

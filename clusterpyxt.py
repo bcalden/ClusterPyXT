@@ -11,8 +11,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from enum import IntEnum
 import acb
 
-config.initialize_pypeline()
-
 try:
     #from ciao_contrib.cda.data import download_chandra_obsids
     import ciao_contrib
@@ -58,7 +56,7 @@ def process_commandline_arguments(cluster_obj):
 
     if args.cont:
         if cluster_obj is None:
-            cluster_obj = config.current_cluster()
+            cluster_obj = config.sys_config.current_cluster
             if cluster_obj is None:
                 print("Cannot find a current working cluster.")
                 exit(-1)
@@ -359,6 +357,9 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
         self.setCentralWidget(widget)
 
+    # def closeEvent(self, event):
+    #     self.parent.load_cluster_list()
+
     def save_update_button_clicked(self):
         cluster_name = self.name_text.text()
         obsids = self.obsid_text.toPlainText().split(' ')
@@ -390,7 +391,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
         self._cluster_obj.last_step_completed = Stage.one.value
         ciao.finish_stage_1(self._cluster_obj)
 
-    def run_stage_2_parallel(self):
+    def run_stage_2(self):
         ciao.run_stage_2_parallel(self._cluster_obj, get_arguments())
         self._cluster_obj.last_step_completed = Stage.two.value
         ciao.finish_stage_2(cluster)
@@ -437,18 +438,19 @@ class MainWindow(QtWidgets.QMainWindow):
         label = QtWidgets.QLabel('Cluster List', self)
         
         self.cluster_list = QtWidgets.QListWidget(self)
-        for cluster_config in self._cluster_configs:
-            self.cluster_list.addItem(cluster_config[0])
-        self.cluster_list.itemClicked.connect(self.list_selection_changed)
-        self.cluster_list.itemDoubleClicked.connect(self.buttonClicked)
 
-        continue_cluster_button = QtWidgets.QPushButton('Continue cluster')
-        continue_cluster_button.clicked.connect(self.buttonClicked)
+        self.cluster_list.itemClicked.connect(self.list_selection_changed)
+        self.cluster_list.itemDoubleClicked.connect(self.button_clicked)
+        self.load_cluster_list()
+
+        self.continue_cluster_button = QtWidgets.QPushButton('Continue cluster')
+        self.continue_cluster_button.clicked.connect(self.button_clicked)
+        self.continue_cluster_button.setEnabled(False)
 
         init_cluster_button = QtWidgets.QPushButton('New Cluster')
-        init_cluster_button.clicked.connect(self.buttonClicked)
+        init_cluster_button.clicked.connect(self.new_cluster_clicked)
         
-        widgets = [label, self.cluster_list, continue_cluster_button, init_cluster_button]
+        widgets = [label, self.cluster_list, self.continue_cluster_button, init_cluster_button]
 
         for widget in widgets:
             layout.addWidget(widget)
@@ -465,23 +467,39 @@ class MainWindow(QtWidgets.QMainWindow):
             self.windows.append(window)
             window.show()
 
-    def buttonClicked(self):
+    def button_clicked(self):
         cluster_name = self._selected_cluster_name 
         window = ClusterWindow(name=cluster_name, parent=self)
         self.windows.append(window)
         window.show()
 
-    def list_selection_changed(self, item):
-        selection_index = self.cluster_list.selectedIndexes()[0].row()
-        cluster_name = self._cluster_configs[selection_index][0] # index 0 = name, index 1 = confi filename
-        self._selected_cluster_name = cluster_name 
+    def new_cluster_clicked(self):
+        window = ClusterWindow(name=None, parent=self)
+        self.windows.append(window)
+        window.show()
 
+    def list_selection_changed(self, item):
+        try:
+            selection_index = self.cluster_list.selectedIndexes()[0].row()
+            cluster_name = self._cluster_configs[selection_index][0] # index 0 = name, index 1 = confi filename
+            self._selected_cluster_name = cluster_name
+            self.continue_cluster_button.setEnabled(True)
+        except IndexError:
+            self._selected_cluster_name = None
+            self.continue_cluster_button.setEnabled(False)
+
+    def load_cluster_list(self):
+        self._cluster_configs = config.get_cluster_configs()
+        for cluster_config in self._cluster_configs:
+            self.cluster_list.addItem(cluster_config[0])
 
 if __name__ == "__main__":
     if 1 == len(sys.argv):
-    
-        cluster_configs = config.get_cluster_configs()
         app = QtWidgets.QApplication([])
+        if config.sys_config.data_directory in ["", "."]:
+            config.sys_config.get_data_dir()
+        if config.sys_config.ciao_directory in ["", "."]:
+            config.sys_config.get_ciao_dir()
         win = MainWindow()
         win.show()
         app.exec_()
