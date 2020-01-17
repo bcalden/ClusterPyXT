@@ -13,8 +13,6 @@ import acb
 
 config.initialize_pypeline()
 
-import menu
-
 try:
     #from ciao_contrib.cda.data import download_chandra_obsids
     import ciao_contrib
@@ -481,7 +479,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":
     if 1 == len(sys.argv):
-        #menu.make_menu()
+    
         cluster_configs = config.get_cluster_configs()
         app = QtWidgets.QApplication([])
         win = MainWindow()
