@@ -8,7 +8,7 @@ import cluster
 from errors import ClusterPyError
 import config
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+from enum import IntEnum
 import acb
 
 config.initialize_pypeline()
