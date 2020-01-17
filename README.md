@@ -1,5 +1,8 @@
 ![](docs/graphics/MainGraphic_700x.jpg)
 
+## CIAO-4.12 update
+Note, for the version of ClusterPyXT compatible with CIAO-4.12, please select that branch (currently in development, dev-CIAO-4.12) above or click [here](https://github.com/bcalden/ClusterPyXT/tree/dev-CIAO-4.12). 
+
 ## Introduction
 ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature maps, pressure maps, surface brightness maps, and density maps. It is open source and under active development. Please feel free to contribute! See the contribution section below for more details. (Even if you're new to everything!)
 
