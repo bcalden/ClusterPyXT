@@ -374,11 +374,22 @@ def make_initial_data_dir(directory):
 
 
 def print_red(string):
-    print("{red}{string}{reset}".format(
-        red=Colors.RED,
-        string=string,
-        reset=Colors.RESET
-    ))
+    print(red_text(string))
+
+def red_text(string):
+    return color_string(string, Colors.RED)
+
+def green_text(string):
+    return color_string(string, Colors.GREEN)
+
+def color_string(string, color):
+    return f"{color}{string}{Colors.RESET}"
+
+def colored_boolean(boolean):
+    if boolean:
+        return green_text(boolean)
+    else:
+        return red_text(boolean)
 
 
 def write_numpy_array_to_image(image_array, filename):

@@ -272,6 +272,14 @@ class Observation:
     @property
     def clean(self):
         return io.get_path("{analysis_dir}/acisI_clean.fits".format(analysis_dir=self.analysis_directory))
+    
+    @property
+    def broad_flux_filename(self):
+        return io.get_path(f"{self.cluster.directory}/{self.cluster.name}_{self.id}_broad_flux.img")
+
+    @property
+    def broad_flux(self):
+        return io.get_pixel_values(self.broad_flux_filename)
 
     @property
     def sc_clean(self):

@@ -10,7 +10,14 @@ import config
 from PyQt5 import QtCore, QtGui, QtWidgets
 from enum import IntEnum
 import acb
+from astropy.io import fits
+import data_operations as do
+from matplotlib.colors import LogNorm
+import matplotlib as mpl
 
+from matplotlib.backends.backend_qt5agg import FigureCanvasQT as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
+
+from matplotlib.figure import Figure
 try:
     #from ciao_contrib.cda.data import download_chandra_obsids
     import ciao_contrib
@@ -109,62 +116,89 @@ def get_arguments():
 
     return args
 
-class ASmoothWindow(QtWidgets.QMainWindow):
+
+class Stage3Window(QtWidgets.QMainWindow):
+
     def __init__(self, parent=None, cluster_obj=None):
-        super(ASmoothWindow, self).__init__(parent)
-
+        super(Stage3Window, self).__init__(parent)
+        layout = QtWidgets.QVBoxLayout()
         self.cluster = cluster_obj
-
-        self.min_label = QLabel('Minimum Smoothing Radius (pixels):', self)
-        self.min_input = QLineEdit("", self)
-        self.max_label = QLabel('Maximum Smoothing Radius (pixels):', self)
-        self.max_input = QLineEdit("", self)
-        self.num_iter_label = QLabel('Number of Iterations:',self)
-        self.num_iter_input = QLineEdit("", self)
-        self.counts_label = QLabel('Minimum Counts', self)
-        self.counts_input = QLineEdit("", self)
+        self.observations = self.cluster.observations
 
 
-        self.smooth_image_button = QPushButton("Adaptively Smooth Image")
-        self.smooth_image_button.clicked.connect(self.smooth_image)
-        layout = QVBoxLayout()
+        
+        
+        #if False in acis_region_files_found:
 
-        layout.addWidget(self.canvas)
-        layout.addWidget(self.smooth_file_button)
-        layout.addWidget(self.min_label)
-        layout.addWidget(self.min_input)
-        layout.addWidget(self.max_label)
-        layout.addWidget(self.max_input)
-        layout.addWidget(self.num_iter_label)
-        layout.addWidget(self.num_iter_input)
-        layout.addWidget(self.counts_label)
-        layout.addWidget(self.counts_input)
-        layout.addWidget(self.smooth_image_button)
+        
+        # self.obsid_label = QtWidgets.QLabel(self.observations[0].id)
+        # self.canvas = FigureCanvas(Figure(figsize=(5,5)))
+        
+        # self.addToolBar(NavigationToolbar(self.canvas, self))
 
-        self.setLayout(layout)
+        # self.load_observation(self.observations[0])
 
-    def smooth_image(self):
-        from ciao_contrib import runtool as rt
-        infile = self.cluster.smoothed_xray_sb_cropped_nosrc_filename
-        min_rad = float(self.min_input.text())
-        max_rad = float(self.max_input.text())
-        iterations = int(self.num_iter_input.text())
-        counts = int(self.counts_input.text())
-        directory = self.cluster.output_dir
-        cluster = self.cluster.name
+        # layout.addWidget(self.obsid_label)
+        # layout.addWidget(self.canvas)
 
-        outfile = "{dir}/{cluster}-smooth-min_{min:0.2f}-max_{max:0.2f}-iter_{iter}-counts_{counts}.fits".format(
-            dir=directory,
-            cluster=cluster,
-            min=min_rad,
-            max=max_rad,
-            iter=iterations,
-            counts=counts)
+        region_file_label = QtWidgets.QLabel(f"A region file (e.g. {self.observations[0].acisI_region_0_filename}) containing\n"
+        "a small circular region covering each of the observation CCD chips is necessary to properly characterize the CCD.\n"
+        "While any size upto the full CCD may be used, a region larger than 60 arc seconds is generally not necessary.")
 
-        print("Generating {}".format(outfile))
-        rt.dmimgadapt(infile=infile, outfile=outfile, function='gaussian', minrad=min_rad, maxrad=max_rad, num=iterations,
-                      counts=counts, radscale='log')
+        obs_string = self.get_obs_string()
+        self.obsid_label = QtWidgets.QLabel(f"{obs_string}")
+        
+        layout.addWidget(region_file_label)
+        layout.addWidget(self.obsid_label)
 
+        self.run_stage_3_button = QtWidgets.QPushButton("Run Stage 3", self)
+        self.run_stage_3_button.clicked.connect(self.run_stage_3)
+        layout.addWidget(self.run_stage_3_button)
+        
+        widget = QtWidgets.QWidget(self)
+        widget.setLayout(layout)
+
+        self.setCentralWidget(widget)  
+        
+
+    def run_stage_3(self):
+        if self.region_files_found():
+            ciao.run_stage_3(self.cluster)
+            self.cluster.last_step_completed = Stage.three.value
+            ciao.finish_stage_3(self.cluster)
+
+        else:
+            print("Missing region files. Please see the documentation for instructions on how to create the region files.")
+
+    def region_files_found(self):
+        for obs in self.observations:
+            if not io.file_exists(obs.acisI_region_0_filename):
+                return False
+        return True      
+
+        
+
+    def get_obs_string(self):
+        obs_string_list = []
+        for observation in self.observations:
+            region_file = io.file_exists(observation.acisI_region_0_filename)
+            obs_string_list.append(f'{observation.id}: {region_file}')
+        
+        return ", ".join(obs_string_list)
+
+    def load_observation(self, observation):
+        obs = observation
+        print(f"Observation: {obs.clean}")
+        self.ax = self.canvas.figure.subplots()
+        data = obs.broad_flux #io.get_pixel_values(obs.broad_flux)
+        
+
+        cmap = mpl.cm.inferno
+        cmap.set_bad(color='k', alpha=None)
+
+        self.ax.imshow(data, norm=LogNorm(), cmap=cmap, origin='lower')
+        self.ax.figure.canvas.draw()
+ 
 
 class ProductMakingWindow(QtWidgets.QMainWindow):
 
@@ -239,7 +273,12 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
             self.pressure_map_button.setEnabled(True)
             self.entropy_map_button.setEnabled(True)
     
-
+def alert_box(message_string, parent=None):
+    alert = QtWidgets.QMessageBox(parent)
+    alert.setIcon(QtWidgets.QMessageBox.Information)
+    alert.setText(message_string)
+    alert.setStandardButtons(QtWidgets.QMessageBox.Ok)
+    return alert.exec_()
 
 class ClusterWindow(QtWidgets.QMainWindow):
 
@@ -256,10 +295,10 @@ class ClusterWindow(QtWidgets.QMainWindow):
         abundance_label = QtWidgets.QLabel('Metallicity', self)
         signal_to_noise_label = QtWidgets.QLabel('Signal to Noise Ratio Desired', self)
         
-        initialized = False
+        self.initialized = False
 
         if name: # cluster already initialized
-            initialized = True
+            self.initialized = True
             self._cluster_obj = cluster.load_cluster(name)
             self.cluster_name = self._cluster_obj.name
             self.obsids = " ".join(self._cluster_obj.observation_list)
@@ -294,7 +333,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
         self.abundance_text = QtWidgets.QLineEdit(self.abundance, self)
         self.signal_to_noise_text = QtWidgets.QLineEdit(self.signal_to_noise, self)
         
-        if not initialized:
+        if not self.initialized:
             save_update_button = QtWidgets.QPushButton(save_update_text, self)
             save_update_button.clicked.connect(self.save_update_button_clicked)
         else:
@@ -303,51 +342,57 @@ class ClusterWindow(QtWidgets.QMainWindow):
             for attr in cluster_attributes:
                 attr.setEnabled(False)
         
-        stage_1_button = QtWidgets.QPushButton('Run Stage 1', self)
-        stage_1_button.clicked.connect(self.run_stage_1)
+        self.stage_1_button = QtWidgets.QPushButton('Run Stage 1', self)
+        self.stage_1_button.clicked.connect(self.run_stage_1)
         
-        stage_2_button = QtWidgets.QPushButton('Run Stage 2', self)
-        stage_2_button.clicked.connect(self.run_stage_2)
         
-        stage_3_button = QtWidgets.QPushButton('Run Stage 3', self)
-        stage_3_button.clicked.connect(self.run_stage_3)
+        self.stage_2_files = QtWidgets.QLabel('Sources file:\nExclude file:')
+        self.stage_2_button = QtWidgets.QPushButton('Run Stage 2', self)
+        self.stage_2_button.clicked.connect(self.run_stage_2)
+        self.update_stage_2_text()
         
-        stage_4_button = QtWidgets.QPushButton('Run Stage 4', self)
-        stage_4_button.clicked.connect(self.run_stage_4)
+        self.stage_3_button = QtWidgets.QPushButton('Run Stage 3', self)
+        self.stage_3_button.clicked.connect(self.run_stage_3)
         
-        stage_5_button = QtWidgets.QPushButton('Run Stage 5', self)
-        stage_5_button.clicked.connect(self.run_stage_5)
+        self.stage_4_button = QtWidgets.QPushButton('Run Stage 4', self)
+        self.stage_4_button.clicked.connect(self.run_stage_4)
         
-        spectral_fitting_button = QtWidgets.QPushButton('Spectral Fitting', self)
-        spectral_fitting_button.clicked.connect(self.run_spectral_fits)
+        self.stage_5_button = QtWidgets.QPushButton('Run Stage 5', self)
+        self.stage_5_button.clicked.connect(self.run_stage_5)
         
-        products_button = QtWidgets.QPushButton('Make Final Products', self)
-        products_button.clicked.connect(self.make_products_clicked)
+        self.spectral_fitting_button = QtWidgets.QPushButton('Spectral Fitting', self)
+        self.spectral_fitting_button.clicked.connect(self.run_spectral_fits)
+        
+        self.products_button = QtWidgets.QPushButton('Make Final Products', self)
+        self.products_button.clicked.connect(self.make_products_clicked)
 
-        stage_buttons = [stage_1_button, stage_2_button, stage_3_button, 
-                        stage_4_button, stage_5_button, spectral_fitting_button, 
-                        products_button]
 
-        for button in stage_buttons:
+        self.buttons = [self.stage_1_button, self.stage_2_button, self.stage_3_button, self.stage_4_button, 
+                        self.stage_5_button, self.spectral_fitting_button, self.products_button]
+
+        stages = [
+                self.stage_1_button, 
+                self.stage_2_files, self.stage_2_button, 
+                self.stage_3_button, 
+                self.stage_4_button, 
+                self.stage_5_button, 
+                self.spectral_fitting_button,
+                self.products_button
+                ]
+
+        for button in self.buttons:
             button.setEnabled(False)
 
-        if initialized:
-            for i in range(self.last_step_completed+1):
-                stage_buttons[i].setEnabled(True)
-        
-            if io.file_exists(self._cluster_obj.spec_fits_file):
-                if io.num_lines_in(self._cluster_obj.spec_fits_file) > 10:
-                    products_button.setEnabled(True)
 
-        if not initialized:
-            stage_buttons.insert(0, save_update_button)
+        if not self.initialized:
+            stages.insert(0, save_update_button)
 
         widgets = [name_label, self.name_text, 
                     obsid_label, self.obsid_text, 
                     nH_label, self.nH_text, 
                     redshift_label, self.redshift_text, 
                     abundance_label, self.abundance_text, 
-                    signal_to_noise_label, self.signal_to_noise_text] + stage_buttons
+                    signal_to_noise_label, self.signal_to_noise_text] + stages
 
         for widget in widgets:
             layout.addWidget(widget)
@@ -356,6 +401,8 @@ class ClusterWindow(QtWidgets.QMainWindow):
         widget.setLayout(layout)
 
         self.setCentralWidget(widget)
+        self.update_stages()
+
 
     # def closeEvent(self, event):
     #     self.parent.load_cluster_list()
@@ -384,25 +431,49 @@ class ClusterWindow(QtWidgets.QMainWindow):
         alert.setIcon(QtWidgets.QMessageBox.Information)
         alert.setText(f"{cluster_name} initialized. Please restart ClusterPyXT to continue.")
         alert.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        retval = alert.exec_()
+        return alert.exec_()
+
+    def update_stages(self):
+        self.update_stage_2_text()
+        self.update_buttons()
+        
+
+    def update_buttons(self):
+        self.last_step_completed = int(self._cluster_obj.last_step_completed)
+        if self.initialized:
+            for i in range(self.last_step_completed+1):
+                self.buttons[i].setEnabled(True)
+        
+            if io.file_exists(self._cluster_obj.spec_fits_file):
+                if io.num_lines_in(self._cluster_obj.spec_fits_file) > 10:
+                    self.products_button.setEnabled(True)
+
 
     def run_stage_1(self):
         ciao.run_stage_1(self._cluster_obj)
         self._cluster_obj.last_step_completed = Stage.one.value
         ciao.finish_stage_1(self._cluster_obj)
+        #self.display_stage_2_message()
+        self.update_stage_2_text()
 
     def run_stage_2(self):
-        ciao.run_stage_2_parallel(self._cluster_obj, get_arguments())
-        self._cluster_obj.last_step_completed = Stage.two.value
-        ciao.finish_stage_2(cluster)
+        if self.stage_2_files_exist:
+            ciao.run_stage_2_parallel(self._cluster_obj, get_arguments())
+            self._cluster_obj.last_step_completed = Stage.two.value
+            ciao.finish_stage_2(self._cluster_obj)
+        else:
+            self.display_stage_2_message()
         return
 
     def run_stage_3(self):
         args = get_arguments()
-        ciao.run_stage_3(self._cluster_obj, args.num_cpus)
-        self._cluster_obj.last_step_completed = Stage.three.value
-        ciao.finish_stage_3(self._cluster_obj)
-        return
+        # ciao.run_stage_3(self._cluster_obj, args.num_cpus)
+        # self._cluster_obj.last_step_completed = Stage.three.value
+        # ciao.finish_stage_3(self._cluster_obj)
+        win = Stage3Window(self, self._cluster_obj)
+        self.windows.append(win)
+        win.show()
+        
 
     def run_stage_4(self):
         ciao.run_stage_4(self._cluster_obj)
@@ -424,6 +495,46 @@ class ClusterWindow(QtWidgets.QMainWindow):
         win = ProductMakingWindow(parent=self, cluster_obj=self._cluster_obj)
         self.windows.append(win)
         win.show()
+
+    @property
+    def stage_2_files_exist(self):
+        sources_file_exists = False
+        exclude_file_exists = False
+        if hasattr(self, '_cluster_obj'):
+            sources_file_exists = io.file_exists(self._cluster_obj.sources_file)
+            exclude_file_exists = io.file_exists(self._cluster_obj.exclude_file)
+        return sources_file_exists and exclude_file_exists
+
+    def update_stage_2_text(self):
+        if hasattr(self, '_cluster_obj'):
+            sources_file_exists = io.file_exists(self._cluster_obj.sources_file)
+            exclude_file_exists = io.file_exists(self._cluster_obj.exclude_file)
+            
+            text = f"Sources file: {sources_file_exists}\n Exclude file: {exclude_file_exists}"
+            self.stage_2_files.setText(text)
+
+
+    def update_stage_3_button_text(self):
+        pass
+
+    def display_stage_2_message(self):
+        sb_map_filename = self._cluster_obj.xray_surface_brightness_filename
+        sources_file = self._cluster_obj.sources_file
+        exclude_file = self._cluster_obj.exclude_file
+        cluster_name = self._cluster_obj.name
+        message_string = f"""Data downloaded and the observations are merged into a surface brightness map {sb_map_filename}. 
+    Now it is time to filter out point sources and high energy flares. To do so, first open the surface brightness
+    map and create regions around sources you want excluded from the data analysis. These are typically foreground
+    point sources one does not want to consider when analyzing the cluster. Save these regions as a DS9 region file
+    named {sources_file}. 
+
+    Additionally, you need to create a region file containing any regions you wanted excluded from the deflaring process.
+    This would include areas such as the peak of cluster emission as these regions may contain high energy events we want
+    to consider in this analysis. Save this region file as {exclude_file}. 
+
+    After both files are saved, you can continue ClusterPyXT on {cluster_name}"""
+        alert_box(message_string)
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):

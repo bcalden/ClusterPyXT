@@ -410,7 +410,8 @@ def actually_merge_observations_from(cluster):
         rt.merge_obs.punlearn()
         rt.merge_obs(infiles=infile,
                      outroot=outroot,
-                     xygrid=xygrid,
+                     binsize=4,
+                     #xygrid=xygrid,
                      clobber=True,
                      parallel=True,
                      nproc=12)
@@ -1339,7 +1340,7 @@ def check_for_required_stage_2_files(cluster: cluster.ClusterObj):
         ))
         print_stage_2_prep(cluster)
 
-        sys.exit(ClusterPyError.sources_or_exclude_not_found)
+        #sys.exit(ClusterPyError.sources_or_exclude_not_found)
 
 
 def run_stage_2(cluster):
