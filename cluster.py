@@ -889,15 +889,18 @@ class ClusterObj:
         try:
             with open(self.configuration_filename, 'w') as configfile:
                 cluster_config.write(configfile)
+                print("Cluster data written to {}".format(self.configuration_filename))
         except FileExistsError:
             print("File exists and I can't overwrite! File: {}".format(self.configuration_filename))
             sys.exit(1)
         except FileNotFoundError:
-            print("Cannot write cluster config to {}!".format(self.configuration_filename))
-            print("Try updating your configuration file to reflect its current path.")
-            sys.exit(1)
-        print("Cluster data written to {}".format(self.configuration_filename))
-
+            if self.data_directory != config.sys_config.data_directory:
+                self.data_directory = config.sys_config.data_directory
+                self.write_cluster_data()
+            else:
+                print("Cannot write cluster config to {}!".format(self.configuration_filename))
+                print("Try updating your configuration file to reflect its current path.")
+                sys.exit(1)
         return
 
     def initialize_cluster(self):

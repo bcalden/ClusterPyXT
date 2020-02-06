@@ -1466,8 +1466,8 @@ def print_stage_5_prep(cluster: cluster.ClusterObj):
     print(prep_str)
 
 
-def run_stage_5(cluster: cluster.ClusterObj, args=None):
-    acb.fitting_preparation(cluster, args)
+def run_stage_5(cluster: cluster.ClusterObj, args=None, num_cpus=mp.cpu_count()):
+    acb.fitting_preparation(cluster, args, num_cpus=num_cpus)
     cluster.last_step_completed = Stage.five.value
 
 
@@ -1560,7 +1560,7 @@ def start_from_last(cluster: cluster.ClusterObj, args=None):
         return
 
     elif last_stage_completed == Stage.four:
-        run_stage_5(cluster, args)
+        run_stage_5(cluster, args=args)
         cluster.last_step_completed = Stage.five.value
         finish_stage_5(cluster)
         return

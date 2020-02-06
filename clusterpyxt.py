@@ -127,22 +127,6 @@ class Stage3Window(QtWidgets.QMainWindow):
         self.cluster = cluster_obj
         self.observations = self.cluster.observations
 
-
-        
-        
-        #if False in acis_region_files_found:
-
-        
-        # self.obsid_label = QtWidgets.QLabel(self.observations[0].id)
-        # self.canvas = FigureCanvas(Figure(figsize=(5,5)))
-        
-        # self.addToolBar(NavigationToolbar(self.canvas, self))
-
-        # self.load_observation(self.observations[0])
-
-        # layout.addWidget(self.obsid_label)
-        # layout.addWidget(self.canvas)
-
         region_file_label = QtWidgets.QLabel(f"A region file (e.g. {self.observations[0].acisI_region_0_filename}) containing\n"
         "a small circular region covering each of the observation CCD chips is necessary to properly characterize the CCD.\n"
         "While any size upto the full CCD may be used, a region larger than 60 arc seconds is generally not necessary.")
@@ -177,9 +161,7 @@ class Stage3Window(QtWidgets.QMainWindow):
         for obs in self.observations:
             if not io.file_exists(obs.acisI_region_0_filename):
                 return False
-        return True      
-
-        
+        return True        
 
     def get_obs_string(self):
         obs_string_list = []
@@ -500,16 +482,23 @@ class ClusterWindow(QtWidgets.QMainWindow):
         return
 
     def run_stage_5(self):
-        args = get_arguments()
-        ciao.run_stage_5(self._cluster_obj, args)
-        self._cluster_obj.last_step_completed = Stage.five.value
-        ciao.finish_stage_5(self._cluster_obj)
-        self.update_stages()
+        win = ACBWindow(cluster=self._cluster_obj, parent=self)
+        self.windows.append(win)
+        win.show()
+        # args = get_arguments()
+        # ciao.run_stage_5(self._cluster_obj, args)
+        # self._cluster_obj.last_step_completed = Stage.five.value
+        # ciao.finish_stage_5(self._cluster_obj)
+        # self.update_stages()
         return
 
     def run_spectral_fits(self):
-        ciao.run_stage_spectral_fits(self._cluster_obj)
-        self.update_stages()
+        # ciao.run_stage_spectral_fits(self._cluster_obj)
+        # self.update_stages()
+        win = SpectralFittingWindow(cluster=self._cluster_obj, parent=self)
+        self.windows.append(win)
+        win.show()
+
         
 
     def make_products_clicked(self):
@@ -561,27 +550,60 @@ class ACBWindow(QtWidgets.QMainWindow):
         super(ACBWindow, self).__init__(parent)
         self.setWindowTitle('ClusterPyXT - Stage 5 - Binning')
         self.cluster = cluster
+        self.parent = parent
         layout = QtWidgets.QVBoxLayout()
-        instruction_label = QtWidgets.QLabel('ACB Fitting can be done in parallel (recommended). The maximum number\n'
-        'of threads is already selected below.', parent=self)
+        instruction_label = QtWidgets.QLabel('Adaptive circular bin calculation can be done in parallel (recommended).\n'
+        'The maximum number of threads is already selected below.', parent=self)
         self.cpu_label = QtWidgets.QLabel('Number of threads:', parent=self)
-        self.cpu_text = QtWidgets.QLineEdit(cpu_count(), parent=self)
+        self.cpu_text = QtWidgets.QLineEdit(f"{cpu_count()}", parent=self)
         self.start_button = QtWidgets.QPushButton('Calculate ACB Map')
-        self.start_button.clicked.connect(self.start_spectral_fits)
+        self.start_button.clicked.connect(self.start_acb_calculation)
 
-    def start_spectral_fits(self):
-        num_cpus = int(self.cpu_text.text)
-        ciao.run_stage_spectral_fits(self.cluster, num_cpus)
-        ciao.finish_stage_spectral_fits(self.cluster)
-        self.cluster.last_step_completed = Stage.tmap.value
+        widgets = [instruction_label, self.cpu_label, self.cpu_text, self.start_button]
+        for widget in widgets:
+            layout.addWidget(widget)
+
+        widget = QtWidgets.QWidget()
+        widget.setLayout(layout)
+
+        self.setCentralWidget(widget)
+
+    def start_acb_calculation(self):
+        num_cpus = int(self.cpu_text.text())
+        ciao.run_stage_5(cluster=self.cluster, num_cpus=num_cpus)
+        ciao.finish_stage_5(self.cluster)
+        self.cluster.last_step_completed = Stage.five.value
         self.parent.update_stages()
 
 
 class SpectralFittingWindow(QtWidgets.QMainWindow):
-    def __init__(self, parent=None):
+    def __init__(self,cluster:cluster.ClusterObj, parent=None):
         super(SpectralFittingWindow, self).__init__(parent)
         self.setWindowTitle('ClusterPyXT - Spectral Fitting')
+        self.cluster = cluster
+        layout = QtWidgets.QVBoxLayout()
+        instruction_label = QtWidgets.QLabel('Spectral fitting can be done in parallel (recommended). The maximum number\n'
+        'of threads is already selected below.', parent=self)
+        self.cpu_label = QtWidgets.QLabel('Number of threads:', parent=self)
+        self.cpu_text = QtWidgets.QLineEdit(f"{cpu_count()}", parent=self)
+        self.start_button = QtWidgets.QPushButton('Calculate Spectral Fits')
+        self.start_button.clicked.connect(self.start_spectral_fits)
 
+        widgets = [instruction_label, self.cpu_label, self.cpu_text, self.start_button]
+        for widget in widgets:
+            layout.addWidget(widget)
+
+        widget = QtWidgets.QWidget()
+        widget.setLayout(layout)
+
+        self.setCentralWidget(widget)
+
+    def start_spectral_fits(self):
+        num_cpus = int(self.cpu_text.text())
+        ciao.run_stage_spectral_fits(self.cluster, num_cpus)
+        ciao.finish_stage_spectral_fits(self.cluster)
+        self.cluster.last_step_completed = Stage.tmap.value
+        self.parent.update_stages()
 
 
 class MainWindow(QtWidgets.QMainWindow):

@@ -450,7 +450,7 @@ def update_stuff():
         io.flush()
     
 
-def fast_acb_creation_parallel(cluster: cluster.ClusterObj):
+def fast_acb_creation_parallel(cluster: cluster.ClusterObj, num_cpus=mp.cpu_count()):
     start_time = time.time()
     indices = cluster.scale_map_indices
     print(f'Calculating {indices.shape[0]} regions')
@@ -458,7 +458,7 @@ def fast_acb_creation_parallel(cluster: cluster.ClusterObj):
     cluster.back_rescale
     cluster.counts_image
     cluster.combined_mask_data
-    pool = mp.Pool(mp.cpu_count())
+    pool = mp.Pool(num_cpus)
     #arguments = [(cluster, index) for index in indices]
     cluster_list = [cluster for i in range(indices.shape[0])]
     arguments = zip(cluster_list, indices)
@@ -1069,7 +1069,7 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
                  overwrite=True)
 
 
-def fitting_preparation(clstr, args=None):
+def fitting_preparation(clstr, args=None, num_cpus=None):
     
     if args is None:
         resolution = 2
@@ -1078,9 +1078,12 @@ def fitting_preparation(clstr, args=None):
         resolution = args.resolution
         cpu_count = args.num_cpus
 
+    if num_cpus:
+        cpu_count = num_cpus
+        
     print("Creating the scale map.")
     #create_scale_map_in_parallel(clstr)
-    fast_acb_creation_parallel(clstr)
+    fast_acb_creation_parallel(clstr, num_cpus=cpu_count)
 
     print("Creating the region index map.")
     create_scale_map_region_index(clstr)
