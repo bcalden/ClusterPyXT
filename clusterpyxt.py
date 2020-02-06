@@ -14,7 +14,6 @@ from astropy.io import fits
 import data_operations as do
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
-import pressure
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQT as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
@@ -268,12 +267,7 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
     def disable_buttons(self):
         buttons = [self.temperature_map_button, self.smoothed_xray_sb_button, self.pressure_map_button, self.entropy_map_button]
         for button in buttons:
-            button.setEnabled(False)
-
-    def make_pressure_error_maps(self):
-        pressure.make_high_low_temperature_map(self.cluster)
-        pressure.make_high_low_pressure_map(self.cluster)
-        
+            button.setEnabled(False)        
 
     def set_enabled(self):
         self.temperature_map_button.setEnabled(True)
