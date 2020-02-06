@@ -1017,11 +1017,25 @@ Last Step Completed: {}""".format(self.name,
         return io.get_path("{}/wvt/".format(self.directory))
 
     @property
-    def counts_image(self):
+    def counts_image_filename(self):
         return io.get_path("{combined_dir}/{cluster_name}_comb_ctsimage.fits".format(
             combined_dir=self.combined_directory,
             cluster_name=self.name
         ))
+
+    @property
+    def counts_image(self):
+        if not hasattr(self, '_counts_image'):
+            cts_image = np.zeros(self.combined_mask_data.shape)
+            try:
+                for obs in self.observations:
+                    cts_image += obs.acisI_combined_image
+                self._counts_image = cts_image
+            except FileNotFoundError:
+                print("No combined image file yet.")
+                return None
+        return self._counts_image
+        
 
     @property
     def combined_signal(self):
@@ -1031,11 +1045,26 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
-    def back_rescale(self):
+    def back_rescale_filename(self):
         return io.get_path("{combined_dir}/{cluster_name}_comb_backrescl.fits".format(
             combined_dir=self.combined_directory,
             cluster_name=self.name
         ))
+
+    @property
+    def back_rescale(self):
+        if not hasattr(self, "_back_rescale"):
+            back_rescale = np.zeros(self.combined_mask_data.shape)
+            try:
+                for obs in self.observations:
+                    t_obs = obs.acisI_combined_image_header['EXPOSURE']
+                    t_back = obs.backI_combined_image_header['EXPOSURE']
+                    back_rescale += (t_obs / t_back) * obs.backI_combined_image
+                self._back_rescale = back_rescale
+            except FileNotFoundError:
+                print("No background combined images created yet.")
+                return None
+        return self._back_rescale
 
     @property
     def combined_mask(self):
@@ -1126,6 +1155,13 @@ Last Step Completed: {}""".format(self.name,
         if not hasattr(self, "_scale_map"):
             self._scale_map = io.get_pixel_values(self.scale_map_file)
         return self._scale_map
+
+    @property
+    def scale_map_indices(self):
+        if not hasattr(self, "_scale_map_indices"):
+            mask = self.combined_mask_data
+            self._scale_map_indices = np.vstack(np.where(mask==1)).T
+        return self._scale_map_indices
 
     @property
     def scale_map_header(self):
@@ -1504,6 +1540,14 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def pressure_map_high_filename(self):
+        return io.get_path(f"{self.output_dir}/{self.name}_pressure_high_error.fits")
+
+    @property
+    def pressure_map_low_filename(self):
+        return io.get_path(f"{self.output_dir}/{self.name}_pressure_low_error.fits")
+
+    @property
     def entropy_map_filename(self):
         return io.get_path('{output_dir}/{name}_entropy.fits'.format(
             output_dir=self.output_dir,
@@ -1542,6 +1586,20 @@ Last Step Completed: {}""".format(self.name,
             output_dir=self.output_dir,
             cluster_name=self.name
         ))
+
+    @property
+    def temperature_max_error_filename(self):
+        return io.get_path(f"{self.output_dir}/{self.name}_temperature_map_max_error.fits")
+
+    @property
+    def temperature_min_error_filename(self):
+        return io.get_path(f"{self.output_dir}/{cluster}_temperature_map_min_error.fits")
+
+    @property
+    def temperature_error_map(self):
+        if not hasattr(self, "_temperature_map"):
+            self._temperature_error_map = io.get_pixel_values(self.temperature_error_map_filename)
+        return self._temperature_error_map
 
     @property
     def temperature_fractional_error_map_filename(self):
@@ -1782,7 +1840,7 @@ Last Step Completed: {}""".format(self.name,
 
         if continue_fit:
             print("{region}:\tCreating the model and defining initial fit parameters".format(region=region_number))
-            phabs.nH = self.hydrogen_column_density
+            phabs.nH = float(self.hydrogen_column_density) / 1e22 
             apec.kT = 8.0
             apec.Abundanc = self.abundance
             apec.redshift = self.redshift

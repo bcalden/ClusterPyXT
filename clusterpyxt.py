@@ -14,6 +14,7 @@ from astropy.io import fits
 import data_operations as do
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
+import pressure
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQT as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
@@ -166,6 +167,7 @@ class Stage3Window(QtWidgets.QMainWindow):
             ciao.run_stage_3(self.cluster)
             self.cluster.last_step_completed = Stage.three.value
             ciao.finish_stage_3(self.cluster)
+            self.parent.update_stages()
 
         else:
             print("Missing region files. Please see the documentation for instructions on how to create the region files.")
@@ -198,6 +200,7 @@ class Stage3Window(QtWidgets.QMainWindow):
 
         self.ax.imshow(data, norm=LogNorm(), cmap=cmap, origin='lower')
         self.ax.figure.canvas.draw()
+    
  
 
 class ProductMakingWindow(QtWidgets.QMainWindow):
@@ -244,6 +247,7 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
         self.disable_buttons()
         print("Making pressure map")
         acb.make_pressure_map(self.cluster)
+        self.make_pressure_error_maps()
         self.set_enabled()
         print("Done")
 
@@ -265,6 +269,11 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
         buttons = [self.temperature_map_button, self.smoothed_xray_sb_button, self.pressure_map_button, self.entropy_map_button]
         for button in buttons:
             button.setEnabled(False)
+
+    def make_pressure_error_maps(self):
+        pressure.make_high_low_temperature_map(self.cluster)
+        pressure.make_high_low_pressure_map(self.cluster)
+        
 
     def set_enabled(self):
         self.temperature_map_button.setEnabled(True)
@@ -417,7 +426,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
         
         cluster_obj = cluster.ClusterObj(name=cluster_name,
                                     observation_ids=obsids,
-                                    data_directory=config.data_directory(),
+                                    data_directory=config.sys_config.data_directory,
                                     hydrogen_column_density=hydrogen_column_density,
                                     abundance=abundance,
                                     redshift=redshift,
@@ -439,8 +448,8 @@ class ClusterWindow(QtWidgets.QMainWindow):
         
 
     def update_buttons(self):
-        self.last_step_completed = int(self._cluster_obj.last_step_completed)
         if self.initialized:
+            self.last_step_completed = int(self._cluster_obj.last_step_completed)
             for i in range(self.last_step_completed+1):
                 self.buttons[i].setEnabled(True)
         
@@ -454,13 +463,16 @@ class ClusterWindow(QtWidgets.QMainWindow):
         self._cluster_obj.last_step_completed = Stage.one.value
         ciao.finish_stage_1(self._cluster_obj)
         #self.display_stage_2_message()
-        self.update_stage_2_text()
+        #self.update_stage_2_text()
+        self.update_stages()
+
 
     def run_stage_2(self):
         if self.stage_2_files_exist:
             ciao.run_stage_2_parallel(self._cluster_obj, get_arguments())
             self._cluster_obj.last_step_completed = Stage.two.value
             ciao.finish_stage_2(self._cluster_obj)
+            self.update_stages()
         else:
             self.display_stage_2_message()
         return
@@ -479,6 +491,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
         ciao.run_stage_4(self._cluster_obj)
         self._cluster_obj.last_step_completed = Stage.four.value
         ciao.finish_stage_4(self._cluster_obj)
+        self.update_stages()
         return
 
     def run_stage_5(self):
@@ -486,10 +499,13 @@ class ClusterWindow(QtWidgets.QMainWindow):
         ciao.run_stage_5(self._cluster_obj, args)
         self._cluster_obj.last_step_completed = Stage.five.value
         ciao.finish_stage_5(self._cluster_obj)
+        self.update_stages()
         return
 
     def run_spectral_fits(self):
-        ciao.print_stage_tmap_prep(self._cluster_obj)
+        ciao.run_stage_spectral_fits(self._cluster_obj)
+        self.update_stages()
+        
 
     def make_products_clicked(self):
         win = ProductMakingWindow(parent=self, cluster_obj=self._cluster_obj)

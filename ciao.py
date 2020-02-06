@@ -12,6 +12,7 @@ import data_operations as do
 import time
 import multiprocessing as mp
 import astropy.io.fits as fits
+import spectral
 
 try:
     from ciao_contrib.cda.data import download_chandra_obsids
@@ -1176,10 +1177,10 @@ def create_combined_images(cluster):
     obs_img.writeto(cluster.combined_signal, overwrite=True)
 
     obs_img[0].data = counts_image
-    obs_img.writeto(cluster.counts_image, overwrite=True)
+    obs_img.writeto(cluster.counts_image_filename, overwrite=True)
 
     obs_img[0].data = back_rescale
-    obs_img.writeto(cluster.back_rescale, overwrite=True)
+    obs_img.writeto(cluster.back_rescale_filename, overwrite=True)
 
     print("Images combined!")
 
@@ -1467,6 +1468,7 @@ def print_stage_5_prep(cluster: cluster.ClusterObj):
 
 def run_stage_5(cluster: cluster.ClusterObj, args=None):
     acb.fitting_preparation(cluster, args)
+    cluster.last_step_completed = Stage.five.value
 
 
 def finish_stage_5(cluster: cluster.ClusterObj):
@@ -1499,13 +1501,10 @@ def print_stage_spectral_fits_prep(cluster: cluster.ClusterObj):
 
 
 def run_stage_spectral_fits(cluster: cluster.ClusterObj):
-    print("Not implemented yet. Complete spectral fits by running:"
-          "python spectral.py --parallel --resolution 2 -c {name}".format(name=cluster.name))
-
+    spectral.calculate_spectral_fits(cluster)
 
 def finish_stage_spectral_fits(cluster: cluster.ClusterObj):
     print_stage_tmap_prep(cluster)
-    pass
 
 
 def print_stage_tmap_prep(cluster: cluster.ClusterObj):
@@ -1524,7 +1523,6 @@ def print_stage_tmap_prep(cluster: cluster.ClusterObj):
 
 def run_stage_tmap(cluster: cluster.ClusterObj):
     pass
-
 
 def finish_stage_tmap(cluster: cluster.ClusterObj):
     pass
@@ -1568,7 +1566,9 @@ def start_from_last(cluster: cluster.ClusterObj, args=None):
         return
 
     elif last_stage_completed == Stage.five:
-        print_stage_tmap_prep(cluster)
+        run_stage_spectral_fits(cluster)
+        cluster.last_step_completed = Stage.tmap.value
+        finish_stage_spectral_fits(cluster)
         ### To be implemented
         # run_stage_tmap(cluster)
         # cluster.last_step_completed = Stage.tmap.value
