@@ -1500,8 +1500,8 @@ def print_stage_spectral_fits_prep(cluster: cluster.ClusterObj):
     print(prep_str)
 
 
-def run_stage_spectral_fits(cluster: cluster.ClusterObj):
-    spectral.calculate_spectral_fits(cluster)
+def run_stage_spectral_fits(cluster: cluster.ClusterObj, num_cpus=mp.cpu_count()):
+    spectral.calculate_spectral_fits(cluster, num_cpus)
 
 def finish_stage_spectral_fits(cluster: cluster.ClusterObj):
     print_stage_tmap_prep(cluster)

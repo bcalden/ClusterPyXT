@@ -84,7 +84,7 @@ def print_iteration_string(start_time, iteration, total):
         io.print_red("\n*********************************\n")
 
 
-def calculate_spectral_fits(clstr: cluster.ClusterObj):
+def calculate_spectral_fits(clstr: cluster.ClusterObj, num_cpus=mp.cpu_count()):
     args = get_arguments()
     if args.cont \
     and io.file_exists(clstr.spec_fits_file) \
@@ -106,7 +106,10 @@ def calculate_spectral_fits(clstr: cluster.ClusterObj):
 
     start_time = time.time()
     num_regions = len(regions)
-    if args.parallel:
+    if num_cpus:
+        args.num_cpus = num_cpus
+
+    if args.parallel and args.num_cpus > 1:
         num_region_lists = (num_regions//args.num_cpus)+1
         region_lists = np.array_split(regions, num_region_lists)
         print("Starting {} iterations with ~{} fits per iteration.".format(len(region_lists), len(region_lists[0])))
@@ -123,7 +126,7 @@ def calculate_spectral_fits(clstr: cluster.ClusterObj):
         num_regions = len(regions)
         counter = 0
         for region in regions:
-            print("Running pix2pix on region {region}".format(region=region))
+            print(f"Fitting region number {region}")
             clstr.fit_region_number(region)
             counter += 1
             if counter % 10 == 0 or counter == num_regions:

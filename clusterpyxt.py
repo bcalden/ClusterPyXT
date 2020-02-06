@@ -14,6 +14,7 @@ from astropy.io import fits
 import data_operations as do
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
+from multiprocessing import cpu_count
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQT as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
@@ -121,6 +122,7 @@ class Stage3Window(QtWidgets.QMainWindow):
 
     def __init__(self, parent=None, cluster_obj=None):
         super(Stage3Window, self).__init__(parent)
+        self.parent = parent
         layout = QtWidgets.QVBoxLayout()
         self.cluster = cluster_obj
         self.observations = self.cluster.observations
@@ -200,7 +202,6 @@ class Stage3Window(QtWidgets.QMainWindow):
         self.ax.imshow(data, norm=LogNorm(), cmap=cmap, origin='lower')
         self.ax.figure.canvas.draw()
     
- 
 
 class ProductMakingWindow(QtWidgets.QMainWindow):
 
@@ -289,6 +290,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
         super(ClusterWindow, self).__init__(parent)
         self.setWindowTitle(name)
         self.windows = list()
+        self.parent=parent
         layout = QtWidgets.QVBoxLayout()
 
         name_label = QtWidgets.QLabel('Cluster Name', self)
@@ -337,13 +339,10 @@ class ClusterWindow(QtWidgets.QMainWindow):
         self.signal_to_noise_text = QtWidgets.QLineEdit(self.signal_to_noise, self)
         
         if not self.initialized:
-            save_update_button = QtWidgets.QPushButton(save_update_text, self)
-            save_update_button.clicked.connect(self.save_update_button_clicked)
+            self.save_update_button = QtWidgets.QPushButton(save_update_text, self)
+            self.save_update_button.clicked.connect(self.save_update_button_clicked)
         else:
-            cluster_attributes = [self.name_text, self.obsid_text, self.nH_text, 
-                                self.redshift_text, self.abundance_text, self.signal_to_noise_text]
-            for attr in cluster_attributes:
-                attr.setEnabled(False)
+            self.disable_cluster_attributes()
         
         self.stage_1_button = QtWidgets.QPushButton('Run Stage 1', self)
         self.stage_1_button.clicked.connect(self.run_stage_1)
@@ -388,7 +387,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
 
         if not self.initialized:
-            stages.insert(0, save_update_button)
+            stages.insert(0, self.save_update_button)
 
         widgets = [name_label, self.name_text, 
                     obsid_label, self.obsid_text, 
@@ -409,6 +408,12 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
     # def closeEvent(self, event):
     #     self.parent.load_cluster_list()
+
+    def disable_cluster_attributes(self):
+        cluster_attributes = [self.name_text, self.obsid_text, self.nH_text, 
+                              self.redshift_text, self.abundance_text, self.signal_to_noise_text]
+        for attr in cluster_attributes:
+            attr.setEnabled(False)
 
     def save_update_button_clicked(self):
         cluster_name = self.name_text.text()
@@ -432,9 +437,15 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
         alert = QtWidgets.QMessageBox(self)
         alert.setIcon(QtWidgets.QMessageBox.Information)
-        alert.setText(f"{cluster_name} initialized. Please restart ClusterPyXT to continue.")
-        alert.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        return alert.exec_()
+        #alert.setText(f"{cluster_name} initialized. Please restart ClusterPyXT to continue.")
+        #alert.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        self.parent.load_cluster_list()
+        self.save_update_button.setEnabled(False)
+        self.disable_cluster_attributes()
+        self._cluster_obj = cluster.load_cluster(cluster_name)
+        self.initialized = True
+        self.update_stages()
+        return
 
     def update_stages(self):
         self.update_stage_2_text()
@@ -545,6 +556,33 @@ class ClusterWindow(QtWidgets.QMainWindow):
     After both files are saved, you can continue ClusterPyXT on {cluster_name}"""
         alert_box(message_string)
 
+class ACBWindow(QtWidgets.QMainWindow):
+    def __init__(self, cluster=None, parent=None):
+        super(ACBWindow, self).__init__(parent)
+        self.setWindowTitle('ClusterPyXT - Stage 5 - Binning')
+        self.cluster = cluster
+        layout = QtWidgets.QVBoxLayout()
+        instruction_label = QtWidgets.QLabel('ACB Fitting can be done in parallel (recommended). The maximum number\n'
+        'of threads is already selected below.', parent=self)
+        self.cpu_label = QtWidgets.QLabel('Number of threads:', parent=self)
+        self.cpu_text = QtWidgets.QLineEdit(cpu_count(), parent=self)
+        self.start_button = QtWidgets.QPushButton('Calculate ACB Map')
+        self.start_button.clicked.connect(self.start_spectral_fits)
+
+    def start_spectral_fits(self):
+        num_cpus = int(self.cpu_text.text)
+        ciao.run_stage_spectral_fits(self.cluster, num_cpus)
+        ciao.finish_stage_spectral_fits(self.cluster)
+        self.cluster.last_step_completed = Stage.tmap.value
+        self.parent.update_stages()
+
+
+class SpectralFittingWindow(QtWidgets.QMainWindow):
+    def __init__(self, parent=None):
+        super(SpectralFittingWindow, self).__init__(parent)
+        self.setWindowTitle('ClusterPyXT - Spectral Fitting')
+
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -568,10 +606,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.continue_cluster_button.clicked.connect(self.button_clicked)
         self.continue_cluster_button.setEnabled(False)
 
+        self.reload_cluster_list_button = QtWidgets.QPushButton('Reload Cluster List')
+        self.reload_cluster_list_button.clicked.connect(self.load_cluster_list)
+
         init_cluster_button = QtWidgets.QPushButton('New Cluster')
         init_cluster_button.clicked.connect(self.new_cluster_clicked)
         
-        widgets = [label, self.cluster_list, self.continue_cluster_button, init_cluster_button]
+        widgets = [label, self.cluster_list, self.continue_cluster_button, init_cluster_button, self.reload_cluster_list_button]
 
         for widget in widgets:
             layout.addWidget(widget)
@@ -611,6 +652,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def load_cluster_list(self):
         self._cluster_configs = config.get_cluster_configs()
+        self.cluster_list.clear()
         for cluster_config in self._cluster_configs:
             self.cluster_list.addItem(cluster_config[0])
 
