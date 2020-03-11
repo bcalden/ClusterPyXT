@@ -1596,7 +1596,7 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def temperature_min_error_filename(self):
-        return io.get_path(f"{self.output_dir}/{cluster}_temperature_map_min_error.fits")
+        return io.get_path(f"{self.output_dir}/{self.name}_temperature_map_min_error.fits")
 
     @property
     def temperature_error_map(self):
@@ -2000,8 +2000,9 @@ def load_cluster(cluster_name: str):
 
 def get_cluster_config(clstr_name):
     data_dir = config.sys_config.data_directory
-    config_file = io.get_filename_matching('{0}/{1}/{1}_pypeline_config.ini'.format(data_dir, clstr_name))
-
+    filename = f'{data_dir}/{clstr_name}/{clstr_name}_pypeline_config.ini'
+    config_file = io.get_filename_matching(filename)
+    print(filename)
     if len(config_file) >= 1:
         return config_file[-1]
     else:

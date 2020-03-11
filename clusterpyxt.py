@@ -184,6 +184,12 @@ class Stage3Window(QtWidgets.QMainWindow):
         self.ax.imshow(data, norm=LogNorm(), cmap=cmap, origin='lower')
         self.ax.figure.canvas.draw()
     
+# class SourceMaskWindow(QtWidgets.QMainWindow):
+#     def __init__(self, parent=None, cluster_obj=None):
+#         super(SourceMaskWindow, self).__init__(parent)
+#         layout = QVBoxLayout()
+
+        
 
 class ProductMakingWindow(QtWidgets.QMainWindow):
 
@@ -229,7 +235,7 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
         self.disable_buttons()
         print("Making pressure map")
         acb.make_pressure_map(self.cluster)
-        self.make_pressure_error_maps()
+        #self.make_pressure_error_maps()
         self.set_enabled()
         print("Done")
 
@@ -435,14 +441,17 @@ class ClusterWindow(QtWidgets.QMainWindow):
         
 
     def update_buttons(self):
-        if self.initialized:
-            self.last_step_completed = int(self._cluster_obj.last_step_completed)
-            for i in range(self.last_step_completed+1):
-                self.buttons[i].setEnabled(True)
-        
-            if io.file_exists(self._cluster_obj.spec_fits_file):
-                if io.num_lines_in(self._cluster_obj.spec_fits_file) > 10:
-                    self.products_button.setEnabled(True)
+        try:
+            if self.initialized:
+                self.last_step_completed = int(self._cluster_obj.last_step_completed)
+                for i in range(self.last_step_completed+1):
+                    self.buttons[i].setEnabled(True)
+            
+                if io.file_exists(self._cluster_obj.spec_fits_file):
+                    if io.num_lines_in(self._cluster_obj.spec_fits_file) > 10:
+                        self.products_button.setEnabled(True)
+        except AttributeError:
+            print('Error, no cluster initialized.')
 
 
     def run_stage_1(self):
@@ -581,6 +590,7 @@ class SpectralFittingWindow(QtWidgets.QMainWindow):
         super(SpectralFittingWindow, self).__init__(parent)
         self.setWindowTitle('ClusterPyXT - Spectral Fitting')
         self.cluster = cluster
+        self.parent = parent
         layout = QtWidgets.QVBoxLayout()
         instruction_label = QtWidgets.QLabel('Spectral fitting can be done in parallel (recommended). The maximum number\n'
         'of threads is already selected below.', parent=self)

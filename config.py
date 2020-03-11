@@ -7,8 +7,10 @@ import pypeline_io as io
 from PyQt5.QtWidgets import QFileDialog, QDialog
 from PyQt5 import QtWidgets
 
-CONFIG_FILENAME = 'pypeline_config.ini'
 
+clusterpy_dir = os.path.dirname(__file__)
+CONFIG_FILENAME = io.get_path(f'{clusterpy_dir}/pypeline_config.ini')
+print(CONFIG_FILENAME)
 class ClusterPyConfig():
     def __init__(self, filename=CONFIG_FILENAME, data_directory="", ciao_directory=""):
         self.filename = filename
