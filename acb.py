@@ -1069,6 +1069,72 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
                  overwrite=True)
 
 
+def make_fit_map(cluster: cluster.ClusterObj, fit_type='Norm', resolution=2):
+    io.make_directory(cluster.output_dir)
+
+    offset = [None, 2, 1, 0][resolution]
+
+    mask_fits = fits.open(cluster.combined_mask)
+    mask = mask_fits[0].data
+
+    scale_map_regions = cluster.scale_map_region_index
+    fits_with_errors = cluster.get_fits_from_file_for(fit_type)
+    fit_map = np.zeros(mask.shape)
+    fit_error_map = np.zeros(mask.shape)
+    fit_fractional_error_map = np.zeros(mask.shape)
+
+    err_high = f"{fit_type}_err_+"
+    err_low = f"{fit_type}_err_-"
+    regions = fits_with_errors['region']
+    actual_fits = fits_with_errors[fit_type]
+    fit_err_plus = fits_with_errors[err_high]
+    fit_err_low = fits_with_errors[err_low]
+
+    for i, region in enumerate(regions):
+        if i% 1000 == 0:
+            _update_completed_things(i, len(regions), 'regions')
+        coordinates = cluster.coordinates_for_scale_map_region(region, scale_map_regions)
+        x = int(coordinates[0])
+        y = int(coordinates[1])
+        low_x = x - offset
+        high_x = x + offset + 1
+        low_y = y - offset
+        high_y = y + offset + 1
+
+        fit_map[low_x:high_x, low_y:high_y] = actual_fits[i]
+        fit_error_map[low_x:high_x, low_y:high_y] = (np.abs(fit_err_plus[i] -
+                                                                fit_err_low[i]))/2
+        fit_fractional_error_map[low_x:high_x, low_y:high_y] = \
+                (fit_error_map[x,y]/fit_map[x,y])*100
+
+    try:
+        if i:
+            _update_completed_things(i, len(regions), 'regions')
+    except ValueError:
+        io.print_red(f"Error trying to load the file, {cluster.spec_fits_file}")
+        raise
+    header = mask_fits[0].header
+
+    
+
+
+    fits.writeto(cluster.fit_map_filename(fit_type),
+                fit_map,
+                header,
+                overwrite=True )
+    
+    fits.writeto(cluster.fit_error_map_filename(fit_type),
+                fit_error_map,
+                header,
+                overwrite=True)
+
+    fits.writeto(cluster.fit_fractional_error_map_filename(fit_type),
+                fit_fractional_error_map,
+                header,
+                overwrite=True)
+    
+
+
 def fitting_preparation(clstr, args=None, num_cpus=None):
     
     if args is None:

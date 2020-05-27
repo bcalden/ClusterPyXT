@@ -209,11 +209,20 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
         self.pressure_map_button.clicked.connect(self.pressure_button_clicked)
         self.pressure_map_button.setEnabled(False)
 
+        self.norm_map_button = QtWidgets.QPushButton("Make Normalization Map", self)
+        self.norm_map_button.clicked.connect(self.norm_map_button_clicked)
+        self.norm_map_button.setEnabled(False)
+
         self.entropy_map_button = QtWidgets.QPushButton("Make Entropy Map", self)
         self.entropy_map_button.clicked.connect(self.entropy_map_button_clicked)
         self.entropy_map_button.setEnabled(False)
 
-        widgets = [self.temperature_map_button, self.smoothed_xray_sb_button, self.pressure_map_button, self.entropy_map_button]
+        widgets = [self.temperature_map_button, 
+                self.smoothed_xray_sb_button, 
+                self.pressure_map_button, 
+                self.entropy_map_button, 
+                self.norm_map_button]
+
         for widget in widgets:
             layout.addWidget(widget)
 
@@ -222,7 +231,6 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
 
         self.setCentralWidget(widget)
         self.set_enabled()
-
 
     def smoothed_xray_button_clicked(self):
         self.disable_buttons()
@@ -253,14 +261,22 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
         self.set_enabled()
         print("Done")
 
+    def norm_map_button_clicked(self):
+        self.disable_buttons()
+        print('Making norm map')
+        acb.make_fit_map(self.cluster, fit_type='Norm')
+        self.set_enabled()
+        print('Done')
+
     def disable_buttons(self):
-        buttons = [self.temperature_map_button, self.smoothed_xray_sb_button, self.pressure_map_button, self.entropy_map_button]
+        buttons = [self.temperature_map_button, self.smoothed_xray_sb_button, self.pressure_map_button, self.entropy_map_button, self.norm_map_button]
         for button in buttons:
             button.setEnabled(False)        
 
     def set_enabled(self):
         self.temperature_map_button.setEnabled(True)
         self.smoothed_xray_sb_button.setEnabled(True)
+        self.norm_map_button.setEnabled(True)
         if io.file_exists(self.cluster.smoothed_xray_sb_cropped_nosrc_filename):
             self.pressure_map_button.setEnabled(True)
             self.entropy_map_button.setEnabled(True)
@@ -276,6 +292,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
     def __init__(self, name=None, parent=None):
         super(ClusterWindow, self).__init__(parent)
+
         self.setWindowTitle(name)
         self.windows = list()
         self.parent=parent
@@ -320,6 +337,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
             nH_label.setText("Hydrogen Column Density (e.g. 5.24e22)")
 
         self.name_text = QtWidgets.QLineEdit(self.cluster_name, self)
+        self.name_text.editingFinished.connect(self.cluster_name_entered)
         self.obsid_text = QtWidgets.QPlainTextEdit(self.obsids, self)       
         self.nH_text = QtWidgets.QLineEdit(self.hydrogen_column_density, self)
         self.redshift_text = QtWidgets.QLineEdit(self.redshift, self)
@@ -393,6 +411,23 @@ class ClusterWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(widget)
         self.update_stages()
 
+
+    def cluster_name_entered(self):
+        try:
+            from astroquery.heasarc import Heasarc
+            self.aq_tools = True
+        except ImportError:
+            self.aq_tools = False
+        if self.aq_tools:
+            cluster_name = self.name_text.text()
+            # if cluster_name[0].lower() == 'a':
+            try:
+                redshift = Heasarc.query_object(cluster_name, mission='abellzcat')[0]['REDSHIFT']
+                    
+                if redshift != 0:
+                    self.redshift_text.setText(f"{redshift}")
+            except:
+                pass
 
     # def closeEvent(self, event):
     #     self.parent.load_cluster_list()

@@ -1477,6 +1477,29 @@ Last Step Completed: {}""".format(self.name,
                 temps['temp_err_minus'].append(float(row['T_err_-']))
         return temps
 
+    def get_fits_from_file_for(self, fit_type='Norm'):
+        err_high = f'{fit_type}_err_+'
+        err_low = f'{fit_type}_err_-'
+
+        fits = {'region': [],
+                fit_type: [],
+                err_high: [],
+                err_low: []
+        }
+        with open(self.spec_fits_file, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                fits['region'].append(int(row['region']))
+                fits[fit_type].append(float(row[fit_type]))
+                fits[err_high].append(float(row[err_high]))
+                fits[err_low].append(float(row[err_low]))
+            return fits
+
+    @property
+    def norm_fits(self):
+        return self.get_fits_from_file_for(fit_type='Norm')
+
+
     @property
     def scale_map_csv_values(self):
         scale_map_values = {'x': [],
@@ -1515,6 +1538,25 @@ Last Step Completed: {}""".format(self.name,
         io.write_numpy_array_to_fits(scale_map, self.scale_map_file, header)
         io.write_numpy_array_to_fits(s_to_n_map, self.sn_map, header)
 
+    def fit_map_filename(self, fit_type):
+        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}.fits')
+    
+    def fit_error_map_filename(self, fit_type):
+        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_error_map.fits')
+
+    def fit_fractional_error_map_filename(self, fit_type):
+        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_fractional_error_map.fits')
+
+    def fit_err_map_high_filename(self, fit_type):
+        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_high_error.fits')
+    
+    def fit_err_map_low_filename(self, fit_type):
+        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_low_error.fits')
+
+    
+    @property
+    def norm_map(self):
+        pass
 
     @property
     def average_temperature_fits(self):
