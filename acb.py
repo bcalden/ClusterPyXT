@@ -1046,7 +1046,7 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
         temperature_error_map[low_x:high_x, low_y:high_y] = (np.abs(temp_error_plus[i] -
                                                              temp_error_minus[i]))/2
         temperature_fractional_error_map[low_x:high_x, low_y:high_y] = \
-            (temperature_error_map[x,y]/temperature_map[x,y])*100
+            (temperature_error_map[x,y]/temperature_map[x,y])
 
     if i:
         _update_completed_things(i, len(regions), "regions")
@@ -1105,7 +1105,7 @@ def make_fit_map(cluster: cluster.ClusterObj, fit_type='Norm', resolution=2):
         fit_error_map[low_x:high_x, low_y:high_y] = (np.abs(fit_err_plus[i] -
                                                                 fit_err_low[i]))/2
         fit_fractional_error_map[low_x:high_x, low_y:high_y] = \
-                (fit_error_map[x,y]/fit_map[x,y])*100
+                (fit_error_map[x,y]/fit_map[x,y])
 
     try:
         if i:

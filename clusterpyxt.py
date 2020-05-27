@@ -127,9 +127,10 @@ class Stage3Window(QtWidgets.QMainWindow):
         self.cluster = cluster_obj
         self.observations = self.cluster.observations
 
-        region_file_label = QtWidgets.QLabel(f"A region file (e.g. {self.observations[0].acisI_region_0_filename}) containing\n"
-        "a small circular region covering each of the observation CCD chips is necessary to properly characterize the CCD.\n"
-        "While any size upto the full CCD may be used, a region larger than 60 arc seconds is generally not necessary.")
+        region_file_label = QtWidgets.QLabel(
+        f"""A region file (e.g. {self.observations[0].acisI_region_0_filename}) containing a small circular
+        region covering each of the observation CCD chips is necessary to properly characterize the CCD.
+        While any size upto the full CCD may be used, a region larger than 60 arc seconds is generally not necessary.""") 
 
         obs_string = self.get_obs_string()
         self.obsid_label = QtWidgets.QLabel(f"{obs_string}")
