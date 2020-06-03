@@ -383,7 +383,7 @@ def green_text(string):
     return color_string(string, Colors.GREEN)
 
 def color_string(string, color):
-    return f"{color}{string}{Colors.RESET}"
+    return "{color}{string}{reset}".format(color=color, string=string, rest=Colors.RESET)
 
 def colored_boolean(boolean):
     if boolean:

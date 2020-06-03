@@ -397,7 +397,7 @@ def calculate_radius_at_index(index, cluster: cluster.ClusterObj,
 
 def binary_search_radii(arguments):
     cluster, index = arguments
-    # print(f"Calculating bin size for {index}")
+    
     radii = np.arange(start=1, stop=101, step=0.125)
     left = 0
     right = radii.shape[0]
@@ -409,7 +409,7 @@ def binary_search_radii(arguments):
 
     if np.sum(cluster.counts_image[radius<=radii[-1]]) == 0: # radii[-1] == max bin radius
         update_stuff()
-        print(f"None @ {index}")
+        print("None @ {index}".format(index=index))
         cluster.write_scale_map_radius(x, y, 0, 0) # no radius, no S/N ratio
         return 
 
@@ -430,7 +430,7 @@ def binary_search_radii(arguments):
         else:
             right = middle
 
-    # print(f"Index {index}: Radius {r}\tS/N {signal_to_noise}")
+    
     update_stuff()
     if r <= 100:
         cluster.write_scale_map_radius(x, y, r, signal_to_noise)
@@ -446,14 +446,14 @@ def update_stuff():
     if update_counter % 1000 == 0: 
         io.clear_line()
         count = update_counter * mp.cpu_count()
-        io.write(f"{count} regions finished.")
+        io.write("{count} regions finished.".format(count=count))
         io.flush()
     
 
 def fast_acb_creation_parallel(cluster: cluster.ClusterObj, num_cpus=mp.cpu_count()):
     start_time = time.time()
     indices = cluster.scale_map_indices
-    print(f'Calculating {indices.shape[0]} regions')
+    print("Calculating {num_regions} regions".format(num_regions=indices.shape[0]))
     cluster.initialize_scale_map_csv()
     cluster.back_rescale
     cluster.counts_image
@@ -474,14 +474,14 @@ def fast_acb_creation_serial(cluster: cluster.ClusterObj):
     start_time = time.time()
 
     indices = cluster.scale_map_indices
-    print(f"Calculating {indices.shape[0]} regions")
+    print("Calculating {num_regions} regions".format(num_regions=indices.shape[0]))
     cluster.initialize_scale_map_csv()
     for index in indices:
         binary_search_radii((cluster, index))
 
     cluster.write_scale_map_csv_to_fits()
     end_time = time.time()
-    print("Time elapsed {:0.2f} seconds.".format(end_time - start_time))
+    print("Time elapsed {elapsed:0.2f} seconds.".format(elapsed=end_time - start_time))
 
 def create_scale_map(cluster):
     target_sn = cluster.signal_to_noise
@@ -1083,8 +1083,8 @@ def make_fit_map(cluster: cluster.ClusterObj, fit_type='Norm', resolution=2):
     fit_error_map = np.zeros(mask.shape)
     fit_fractional_error_map = np.zeros(mask.shape)
 
-    err_high = f"{fit_type}_err_+"
-    err_low = f"{fit_type}_err_-"
+    err_high = "{fit_type}_err_+".format(fit_type=fit_type)
+    err_low = "{fit_type}_err_-".format(fit_type=fit_type)
     regions = fits_with_errors['region']
     actual_fits = fits_with_errors[fit_type]
     fit_err_plus = fits_with_errors[err_high]
@@ -1111,7 +1111,7 @@ def make_fit_map(cluster: cluster.ClusterObj, fit_type='Norm', resolution=2):
         if i:
             _update_completed_things(i, len(regions), 'regions')
     except ValueError:
-        io.print_red(f"Error trying to load the file, {cluster.spec_fits_file}")
+        io.print_red("Error trying to load the file, {spec_fits_file}".format(spec_fits_file=cluster.spec_fits_file))
         raise
     header = mask_fits[0].header
 
@@ -1288,7 +1288,10 @@ def make_smoothed_xray_map(clstr: cluster.ClusterObj):
     scale_map = clstr.scale_map_file
     sb_map = clstr.xray_surface_brightness_nosrc_cropped_filename
 
-    print(f"Using {clstr.scale_map_file} and {clstr.xray_surface_brightness_nosrc_cropped_filename}")
+    print("Using {clstr.scale_map_file} and {clstr.xray_surface_brightness_nosrc_cropped_filename}".format(
+        acb_map_file=clstr.scale_map_file,
+        xray_sb_map_file=clstr.xray_surface_brightness_nosrc_cropped_filename
+    ))
 
     sb_map, scale_map = make_sizes_match(input_image=clstr.xray_surface_brightness_nosrc_cropped_filename, second_image=clstr.scale_map_file)
 
@@ -1305,7 +1308,9 @@ def make_smoothed_xray_map(clstr: cluster.ClusterObj):
                 radius_mask = radius_map <= scale_map[x,y]
                 new_map[x,y] = sb_map[radius_mask].mean()
     fits.writeto(clstr.smoothed_xray_sb_cropped_nosrc_filename, new_map, header=clstr.scale_map_header, overwrite=True)
-    print(f"{clstr.smoothed_xray_sb_cropped_nosrc_filename} written. X-ray SB ACB map complete.")
+    print("{smoothed_filename} written. X-ray SB ACB map complete.".format(
+        smoothed_filename=clstr.smoothed_xray_sb_cropped_nosrc_filename
+    ))
 
 def make_sizes_match(input_image="", second_image=""):
     input_image_data = fits.open(input_image)[0].data
@@ -1315,22 +1320,30 @@ def make_sizes_match(input_image="", second_image=""):
     second_file = second_image
 
     if input_image_data.shape != second_image_data.shape:
-        print(f'input_image shape = {input_image_data.shape}')
-        print(f'second_image shape = {second_image_data.shape}')
+        print("input_image shape = {input_shape}".format(input_shape=input_image_data.shape))
+        print("second_image shape = {input_shape}".format(input_shape=second_image_data.shape))
         
         if input_image_data.size > second_image_data.size:
-            print(f"Reprojecting {second_image}")
+            print("Reprojecting {second_image}".format(second_image=second_image))
             reprojected_filename = repro_filename(second_file)
-            print(f"reproject(infile={second_image}, matchfile={input_image}, outfile={reprojected_filename}, overwrite=True)")
+            print("reproject(infile={second_image}, matchfile={input_image}, outfile={reprojected_filename}, overwrite=True)".format(
+                second_image=second_image,
+                input_image=input_image,
+                reprojected_filename=reprojected_filename
+            ))
             reproject(infile=second_image,
                       matchfile=input_image,
                       outfile=reprojected_filename,
                       overwrite=True)
             second_file = reprojected_filename
         else:
-            print(f'reprojecting {input_image}')
+            print("reprojecting {input_image}".format(input_image=input_image))
             reprojected_filename = repro_filename(input_image)
-            print(f"reproject(infile={input_image}, matchfile={second_image}, outfile={reprojected_filename}, overwrite=True)")
+            print("reproject(infile={input_image}, matchfile={second_image}, outfile={reprojected_filename}, overwrite=True)".format(
+                second_image=second_image,
+                input_image=input_image,
+                reprojected_filename=reprojected_filename
+            ))
             reproject(infile=input_image,
                       matchfile=second_image,
                       outfile=reprojected_filename,
@@ -1338,7 +1351,7 @@ def make_sizes_match(input_image="", second_image=""):
             image_file = reprojected_filename
 
     first, second = fits.open(image_file)[0].data, fits.open(second_file)[0].data
-    print(f"{first.shape} == {second.shape}")
+    print("{first_shape} == {second_shape}".format(first_shape=first.shape, second_shape=second.shape))
     return first, second
 
 

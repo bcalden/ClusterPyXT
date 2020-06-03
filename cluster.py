@@ -275,7 +275,11 @@ class Observation:
     
     @property
     def broad_flux_filename(self):
-        return io.get_path(f"{self.cluster.directory}/{self.cluster.name}_{self.id}_broad_flux.img")
+        return io.get_path("{cluster_dir}/{cluster_name}_{obsid}_broad_flux.img".format(
+            cluster_dir=self.cluster.directory,
+            cluster_name=self.cluster.name,
+            obsid=self.id
+        ))
 
     @property
     def broad_flux(self):
@@ -1478,8 +1482,8 @@ Last Step Completed: {}""".format(self.name,
         return temps
 
     def get_fits_from_file_for(self, fit_type='Norm'):
-        err_high = f'{fit_type}_err_+'
-        err_low = f'{fit_type}_err_-'
+        err_high = "{fit_type}_err_+".format(fit_type=fit_type)
+        err_low = "{fit_type}_err_-".format(fit_type=fit_type)
 
         fits = {'region': [],
                 fit_type: [],
@@ -1539,19 +1543,39 @@ Last Step Completed: {}""".format(self.name,
         io.write_numpy_array_to_fits(s_to_n_map, self.sn_map, header)
 
     def fit_map_filename(self, fit_type):
-        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}.fits')
+        return io.get_path("{output_dir}/{name}_{fit_type}.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
     
     def fit_error_map_filename(self, fit_type):
-        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_error_map.fits')
+        return io.get_path("{output_dir}/{name}_{fit_type}_error_map.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
 
     def fit_fractional_error_map_filename(self, fit_type):
-        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_fractional_error_map.fits')
+        return io.get_path("{output_dir}/{name}_{fit_type}_fractional_error_map.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
 
     def fit_err_map_high_filename(self, fit_type):
-        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_high_error.fits')
+        return io.get_path("{output_dir}/{name}_{fit_type}_high_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
     
     def fit_err_map_low_filename(self, fit_type):
-        return io.get_path(f'{self.output_dir}/{self.name}_{fit_type}_low_error.fits')
+        return io.get_path("{output_dir}/{name}_{fit_type}_low_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
 
     
     @property
@@ -1586,11 +1610,17 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def pressure_map_high_filename(self):
-        return io.get_path(f"{self.output_dir}/{self.name}_pressure_high_error.fits")
+        return io.get_path("{output_dir}/{name}_pressure_high_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
 
     @property
     def pressure_map_low_filename(self):
-        return io.get_path(f"{self.output_dir}/{self.name}_pressure_low_error.fits")
+        return io.get_path("{output_dir}/{name}_pressure_low_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
 
     @property
     def entropy_map_filename(self):
@@ -1634,11 +1664,17 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def temperature_max_error_filename(self):
-        return io.get_path(f"{self.output_dir}/{self.name}_temperature_map_max_error.fits")
+        return io.get_path("{output_dir}/{name}_temperature_map_max_error.fits".format(
+            output_dir=self.output_dir,
+            cluster_name=self.name    
+        ))
 
     @property
     def temperature_min_error_filename(self):
-        return io.get_path(f"{self.output_dir}/{self.name}_temperature_map_min_error.fits")
+        return io.get_path("{output_dir}/{name}_temperature_map_min_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name    
+        ))
 
     @property
     def temperature_error_map(self):
@@ -1672,7 +1708,10 @@ Last Step Completed: {}""".format(self.name,
 
     @property
     def smoothed_xray_sb_cropped_nosrc_filename(self):
-        return io.get_path(f"{self.output_dir}/{self.name}_acb_xray_sb_nosrc_cropped.fits")
+        return io.get_path("{output_dir}/{name}_acb_xray_sb_nosrc_cropped.fits".format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
 
     @property
     def cropped_nosrc_xray_surface_brightness(self):
@@ -2041,10 +2080,12 @@ def load_cluster(cluster_name: str):
 
 
 def get_cluster_config(clstr_name):
-    data_dir = config.sys_config.data_directory
-    filename = f'{data_dir}/{clstr_name}/{clstr_name}_pypeline_config.ini'
+    filename = "{data_dir}/{name}/{name}_pypeline_config.ini".format(
+            data_dir=config.sys_config.data_directory,
+            name=clstr_name
+        )
     config_file = io.get_filename_matching(filename)
-    print(filename)
+    
     if len(config_file) >= 1:
         return config_file[-1]
     else:

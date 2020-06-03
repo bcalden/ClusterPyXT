@@ -128,12 +128,14 @@ class Stage3Window(QtWidgets.QMainWindow):
         self.observations = self.cluster.observations
 
         region_file_label = QtWidgets.QLabel(
-        f"""A region file (e.g. {self.observations[0].acisI_region_0_filename}) containing a small circular
+        """A region file (e.g. {acisI_region_0_file}) containing a small circular
         region covering each of the observation CCD chips is necessary to properly characterize the CCD.
-        While any size upto the full CCD may be used, a region larger than 60 arc seconds is generally not necessary.""") 
+        While any size upto the full CCD may be used, a region larger than 60 arc seconds is generally not necessary.""".format(
+            acisI_region_0_file=self.observations[0].acisI_region_0_filename
+        )) 
 
         obs_string = self.get_obs_string()
-        self.obsid_label = QtWidgets.QLabel(f"{obs_string}")
+        self.obsid_label = QtWidgets.QLabel("{obs_string}".format(obs_string=obs_string))
         
         layout.addWidget(region_file_label)
         layout.addWidget(self.obsid_label)
@@ -168,22 +170,22 @@ class Stage3Window(QtWidgets.QMainWindow):
         obs_string_list = []
         for observation in self.observations:
             region_file = io.file_exists(observation.acisI_region_0_filename)
-            obs_string_list.append(f'{observation.id}: {region_file}')
+            obs_string_list.append("{observation.id}: {region_file}".format(obsid=observation.id, region_file=region_file))
         
         return ", ".join(obs_string_list)
 
     def load_observation(self, observation):
         obs = observation
-        print(f"Observation: {obs.clean}")
+        print("Observation: {clean_obs}".format(clean_obs=obs.clean))
         self.ax = self.canvas.figure.subplots()
         data = obs.broad_flux #io.get_pixel_values(obs.broad_flux)
         
 
-        cmap = mpl.cm.inferno
-        cmap.set_bad(color='k', alpha=None)
+        # cmap = mpl.cm.inferno
+        # cmap.set_bad(color='k', alpha=None)
 
-        self.ax.imshow(data, norm=LogNorm(), cmap=cmap, origin='lower')
-        self.ax.figure.canvas.draw()
+        # self.ax.imshow(data, norm=LogNorm(), cmap=cmap, origin='lower')
+        # self.ax.figure.canvas.draw()
     
 # class SourceMaskWindow(QtWidgets.QMainWindow):
 #     def __init__(self, parent=None, cluster_obj=None):
@@ -426,7 +428,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
                 redshift = Heasarc.query_object(cluster_name, mission='abellzcat')[0]['REDSHIFT']
                     
                 if redshift != 0:
-                    self.redshift_text.setText(f"{redshift}")
+                    self.redshift_text.setText("{redshift}".format(redshift=redshift))
             except:
                 pass
 
@@ -461,7 +463,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
         alert = QtWidgets.QMessageBox(self)
         alert.setIcon(QtWidgets.QMessageBox.Information)
-        #alert.setText(f"{cluster_name} initialized. Please restart ClusterPyXT to continue.")
+        
         #alert.setStandardButtons(QtWidgets.QMessageBox.Ok)
         self.parent.load_cluster_list()
         self.save_update_button.setEnabled(False)
@@ -565,7 +567,10 @@ class ClusterWindow(QtWidgets.QMainWindow):
             sources_file_exists = io.file_exists(self._cluster_obj.sources_file)
             exclude_file_exists = io.file_exists(self._cluster_obj.exclude_file)
             
-            text = f"Sources file: {sources_file_exists}\n Exclude file: {exclude_file_exists}"
+            text = "Sources file: {sources_file_exists}\n Exclude file: {exclude_file_exists}".format(
+                sources_file_exists=sources_file_exists,
+                exclude_file_exists=exclude_file_exists
+            )
             self.stage_2_files.setText(text)
 
 
@@ -577,7 +582,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
         sources_file = self._cluster_obj.sources_file
         exclude_file = self._cluster_obj.exclude_file
         cluster_name = self._cluster_obj.name
-        message_string = f"""Data downloaded and the observations are merged into a surface brightness map {sb_map_filename}. 
+        message_string = """Data downloaded and the observations are merged into a surface brightness map {sb_map_filename}. 
     Now it is time to filter out point sources and high energy flares. To do so, first open the surface brightness
     map and create regions around sources you want excluded from the data analysis. These are typically foreground
     point sources one does not want to consider when analyzing the cluster. Save these regions as a DS9 region file
@@ -587,7 +592,12 @@ class ClusterWindow(QtWidgets.QMainWindow):
     This would include areas such as the peak of cluster emission as these regions may contain high energy events we want
     to consider in this analysis. Save this region file as {exclude_file}. 
 
-    After both files are saved, you can continue ClusterPyXT on {cluster_name}"""
+    After both files are saved, you can continue ClusterPyXT on {cluster_name}""".format(
+        sb_map_filename=sb_map_filename,
+        sources_file=sources_file,
+        exclude_file=exclude_file,
+        cluster_name=cluster_name
+    )
         alert_box(message_string)
 
 class ACBWindow(QtWidgets.QMainWindow):
@@ -600,7 +610,7 @@ class ACBWindow(QtWidgets.QMainWindow):
         instruction_label = QtWidgets.QLabel('Adaptive circular bin calculation can be done in parallel (recommended).\n'
         'The maximum number of threads is already selected below.', parent=self)
         self.cpu_label = QtWidgets.QLabel('Number of threads:', parent=self)
-        self.cpu_text = QtWidgets.QLineEdit(f"{cpu_count()}", parent=self)
+        self.cpu_text = QtWidgets.QLineEdit("{cpu_count}".format(cpu_count=cpu_count()), parent=self)
         self.start_button = QtWidgets.QPushButton('Calculate ACB Map')
         self.start_button.clicked.connect(self.start_acb_calculation)
 
@@ -631,7 +641,7 @@ class SpectralFittingWindow(QtWidgets.QMainWindow):
         instruction_label = QtWidgets.QLabel('Spectral fitting can be done in parallel (recommended). The maximum number\n'
         'of threads is already selected below.', parent=self)
         self.cpu_label = QtWidgets.QLabel('Number of threads:', parent=self)
-        self.cpu_text = QtWidgets.QLineEdit(f"{cpu_count()}", parent=self)
+        self.cpu_text = QtWidgets.QLineEdit("{cpu_count}".format(cpu_count=cpu_count()), parent=self)
         self.start_button = QtWidgets.QPushButton('Calculate Spectral Fits')
         self.start_button.clicked.connect(self.start_spectral_fits)
 

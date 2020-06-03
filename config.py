@@ -8,8 +8,9 @@ from PyQt5.QtWidgets import QFileDialog, QDialog
 from PyQt5 import QtWidgets
 
 
-clusterpy_dir = os.path.dirname(__file__)
-CONFIG_FILENAME = io.get_path(f'{clusterpy_dir}/pypeline_config.ini')
+CONFIG_FILENAME = io.get_path("{clusterpy_dir}/pypeline_config.ini".format(
+    clusterpy_dir=os.path.dirname(__file__)
+    ))
 print(CONFIG_FILENAME)
 class ClusterPyConfig():
     def __init__(self, filename=CONFIG_FILENAME, data_directory="", ciao_directory=""):

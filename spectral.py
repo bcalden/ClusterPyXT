@@ -126,7 +126,7 @@ def calculate_spectral_fits(clstr: cluster.ClusterObj, num_cpus=mp.cpu_count()):
         num_regions = len(regions)
         counter = 0
         for region in regions:
-            print(f"Fitting region number {region}")
+            print("Fitting region number {region}".format(region=region))
             clstr.fit_region_number(region)
             counter += 1
             if counter % 10 == 0 or counter == num_regions:
