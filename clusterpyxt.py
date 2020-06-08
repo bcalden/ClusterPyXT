@@ -170,7 +170,7 @@ class Stage3Window(QtWidgets.QMainWindow):
         obs_string_list = []
         for observation in self.observations:
             region_file = io.file_exists(observation.acisI_region_0_filename)
-            obs_string_list.append("{observation.id}: {region_file}".format(obsid=observation.id, region_file=region_file))
+            obs_string_list.append("{obsid}: {region_file}".format(obsid=observation.id, region_file=region_file))
         
         return ", ".join(obs_string_list)
 
@@ -341,7 +341,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
         self.name_text = QtWidgets.QLineEdit(self.cluster_name, self)
         self.name_text.editingFinished.connect(self.cluster_name_entered)
-        self.obsid_text = QtWidgets.QPlainTextEdit(self.obsids, self)       
+        self.obsid_text = QtWidgets.QPlainTextEdit(self.obsids, self) 
         self.nH_text = QtWidgets.QLineEdit(self.hydrogen_column_density, self)
         self.redshift_text = QtWidgets.QLineEdit(self.redshift, self)
         self.abundance_text = QtWidgets.QLineEdit(self.abundance, self)

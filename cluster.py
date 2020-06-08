@@ -873,6 +873,7 @@ class ClusterObj:
         self.abundance = abundance
         self._last_step_completed = last_step_completed
         self.observation_ids = observation_ids
+
         self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
         self.signal_to_noise = float(signal_to_noise)
 

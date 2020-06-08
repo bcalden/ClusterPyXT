@@ -47,7 +47,11 @@ def download_data(cluster):
     for observation in cluster.observation_ids:
         print("Downloading data from observation {}".format(observation))
 
-        success.append(download_chandra_obsids([observation]))
+        try:
+            success.append(download_chandra_obsids([observation]))
+        except IndexError:
+            print('CIAO failed to download {obsid}. Please re-run stage 1.'.format(obsid=observation))
+
         if success[-1]:
             print("Successfully downloaded data for observation {}.".format(observation))
             cluster.observation(observation).set_ccds()
@@ -178,14 +182,17 @@ def ciao_back(cluster, overwrite=False):
                     path_to_background))
 
                 raise
-
-            acis_gain = rt.dmkeypar(infile=acis_file,
-                                    keyword="GAINFILE",
-                                    echo=True)
-            background_gain = rt.dmkeypar(infile=local_background_path,
-                                          keyword="GAINFILE",
-                                          echo=True)
-
+            try:
+                acis_gain = rt.dmkeypar(infile=acis_file,
+                                        keyword="GAINFILE",
+                                        echo=True)
+                background_gain = rt.dmkeypar(infile=local_background_path,
+                                            keyword="GAINFILE",
+                                            echo=True)
+            except ValueError:
+                
+                print("Error getting parameter file in CIAO. Please close ClusterPyXT and re-try the stage. If the problem persists, please file a bug report on https://github.com/bcalden/ClusterPyXT with the following error message:")
+                raise
             print("{}/{}/acis_ccd{}.fits gain: {}".format(cluster.name, observation.id, acis_id, acis_gain))
             print("{}/{}/back_ccd{}.fits gain: {}".format(cluster.name, observation.id, acis_id, background_gain))
 
