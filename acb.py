@@ -1288,7 +1288,7 @@ def make_smoothed_xray_map(clstr: cluster.ClusterObj):
     scale_map = clstr.scale_map_file
     sb_map = clstr.xray_surface_brightness_nosrc_cropped_filename
 
-    print("Using {clstr.scale_map_file} and {clstr.xray_surface_brightness_nosrc_cropped_filename}".format(
+    print("Using {acb_map_file} and {xray_sb_map_file}".format(
         acb_map_file=clstr.scale_map_file,
         xray_sb_map_file=clstr.xray_surface_brightness_nosrc_cropped_filename
     ))
