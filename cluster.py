@@ -1496,8 +1496,14 @@ Last Step Completed: {}""".format(self.name,
             for row in reader:
                 fits['region'].append(int(row['region']))
                 fits[fit_type].append(float(row[fit_type]))
-                fits[err_high].append(float(row[err_high]))
-                fits[err_low].append(float(row[err_low]))
+                try:
+                    fits[err_high].append(float(row[err_high]))
+                except ValueError:
+                    fits[err_high].append(np.nan)               
+                try:
+                    fits[err_low].append(float(row[err_low]))
+                except ValueError:
+                    fits[err_low].append(np.nan)
             return fits
 
     @property
