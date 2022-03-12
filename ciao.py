@@ -12,6 +12,7 @@ import data_operations as do
 import time
 import multiprocessing as mp
 import astropy.io.fits as fits
+import spectral
 
 try:
     from ciao_contrib.cda.data import download_chandra_obsids
@@ -46,7 +47,11 @@ def download_data(cluster):
     for observation in cluster.observation_ids:
         print("Downloading data from observation {}".format(observation))
 
-        success.append(download_chandra_obsids([observation]))
+        try:
+            success.append(download_chandra_obsids([observation]))
+        except IndexError:
+            print('CIAO failed to download {obsid}. Please re-run stage 1.'.format(obsid=observation))
+
         if success[-1]:
             print("Successfully downloaded data for observation {}.".format(observation))
             cluster.observation(observation).set_ccds()
@@ -137,7 +142,7 @@ def reprocess(cluster, observation, acis_gain, background_gain, acis_id):
     infile = "{dir}/back_ccd{acis_id}.fits".format(dir=local_path,
                                                    acis_id=acis_id)
 
-    gainfile = "{ciao_dir}/CALDB/data/chandra/acis/det_gain/{acis_gain}".format(ciao_dir=config.ciao_directory(),
+    gainfile = "{ciao_dir}/CALDB/data/chandra/acis/det_gain/{acis_gain}".format(ciao_dir=config.sys_config.ciao_directory,
                                                                                 acis_gain=acis_gain)
     print("Reprocessing {cluster}/{observation}/{acis_id}".format(cluster=cluster.name,
                                                                   observation=observation,
@@ -177,14 +182,17 @@ def ciao_back(cluster, overwrite=False):
                     path_to_background))
 
                 raise
-
-            acis_gain = rt.dmkeypar(infile=acis_file,
-                                    keyword="GAINFILE",
-                                    echo=True)
-            background_gain = rt.dmkeypar(infile=local_background_path,
-                                          keyword="GAINFILE",
-                                          echo=True)
-
+            try:
+                acis_gain = rt.dmkeypar(infile=acis_file,
+                                        keyword="GAINFILE",
+                                        echo=True)
+                background_gain = rt.dmkeypar(infile=local_background_path,
+                                            keyword="GAINFILE",
+                                            echo=True)
+            except ValueError:
+                
+                print("Error getting parameter file in CIAO. Please close ClusterPyXT and re-try the stage. If the problem persists, please file a bug report on https://github.com/bcalden/ClusterPyXT with the following error message:")
+                raise
             print("{}/{}/acis_ccd{}.fits gain: {}".format(cluster.name, observation.id, acis_id, acis_gain))
             print("{}/{}/back_ccd{}.fits gain: {}".format(cluster.name, observation.id, acis_id, background_gain))
 
@@ -410,7 +418,8 @@ def actually_merge_observations_from(cluster):
         rt.merge_obs.punlearn()
         rt.merge_obs(infiles=infile,
                      outroot=outroot,
-                     xygrid=xygrid,
+                     binsize=4,
+                     #xygrid=xygrid,
                      clobber=True,
                      parallel=True,
                      nproc=12)
@@ -1175,10 +1184,10 @@ def create_combined_images(cluster):
     obs_img.writeto(cluster.combined_signal, overwrite=True)
 
     obs_img[0].data = counts_image
-    obs_img.writeto(cluster.counts_image, overwrite=True)
+    obs_img.writeto(cluster.counts_image_filename, overwrite=True)
 
     obs_img[0].data = back_rescale
-    obs_img.writeto(cluster.back_rescale, overwrite=True)
+    obs_img.writeto(cluster.back_rescale_filename, overwrite=True)
 
     print("Images combined!")
 
@@ -1339,7 +1348,7 @@ def check_for_required_stage_2_files(cluster: cluster.ClusterObj):
         ))
         print_stage_2_prep(cluster)
 
-        sys.exit(ClusterPyError.sources_or_exclude_not_found)
+        #sys.exit(ClusterPyError.sources_or_exclude_not_found)
 
 
 def run_stage_2(cluster):
@@ -1464,8 +1473,9 @@ def print_stage_5_prep(cluster: cluster.ClusterObj):
     print(prep_str)
 
 
-def run_stage_5(cluster: cluster.ClusterObj, args=None):
-    acb.fitting_preparation(cluster, args)
+def run_stage_5(cluster: cluster.ClusterObj, args=None, num_cpus=mp.cpu_count()):
+    acb.fitting_preparation(cluster, args, num_cpus=num_cpus)
+    cluster.last_step_completed = Stage.five.value
 
 
 def finish_stage_5(cluster: cluster.ClusterObj):
@@ -1484,26 +1494,24 @@ def print_stage_spectral_fits_prep(cluster: cluster.ClusterObj):
 
     Next, with CIAO running, simply run:
 
-        python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini
+        python spectral.py --parallel --resolution 2 -c {name}
 
     The resolution parameter can be set to either 1 - low resolution, 2 - medium resolution, or 3 - high resolution.
     If the parallel flag indicates to run in parallel. If the number of cpus is not set (--num_cpus), ClusterPyXT uses
     the total number of cores on your machine. 
 
     If you must restart the fitting for any reason, simply add the --continue flag in order to not redo any of the fits.""".format(
-        cluster_config=cluster.configuration_filename
+        cluster_config=cluster.configuration_filename,
+        name=cluster.name
     )
     print(prep_str)
 
 
-def run_stage_spectral_fits(cluster: cluster.ClusterObj):
-    print("Not implemented yet. Complete spectral fits by running:"
-          "python spectral.py --parallel --resolution 1 --cluster_config_file /path/to/cluster/A115/A115_pypeline_config.ini")
-
+def run_stage_spectral_fits(cluster: cluster.ClusterObj, num_cpus=mp.cpu_count()):
+    spectral.calculate_spectral_fits(cluster, num_cpus)
 
 def finish_stage_spectral_fits(cluster: cluster.ClusterObj):
     print_stage_tmap_prep(cluster)
-    pass
 
 
 def print_stage_tmap_prep(cluster: cluster.ClusterObj):
@@ -1522,7 +1530,6 @@ def print_stage_tmap_prep(cluster: cluster.ClusterObj):
 
 def run_stage_tmap(cluster: cluster.ClusterObj):
     pass
-
 
 def finish_stage_tmap(cluster: cluster.ClusterObj):
     pass
@@ -1560,13 +1567,15 @@ def start_from_last(cluster: cluster.ClusterObj, args=None):
         return
 
     elif last_stage_completed == Stage.four:
-        run_stage_5(cluster, args)
+        run_stage_5(cluster, args=args)
         cluster.last_step_completed = Stage.five.value
         finish_stage_5(cluster)
         return
 
     elif last_stage_completed == Stage.five:
-        print_stage_tmap_prep(cluster)
+        run_stage_spectral_fits(cluster)
+        cluster.last_step_completed = Stage.tmap.value
+        finish_stage_spectral_fits(cluster)
         ### To be implemented
         # run_stage_tmap(cluster)
         # cluster.last_step_completed = Stage.tmap.value
@@ -1582,7 +1591,7 @@ def start_from_last(cluster: cluster.ClusterObj, args=None):
 def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
     clstr = cluster.ClusterObj(name=name, observation_ids=obsids, abundance=abundance,
                                redshift=redshift, hydrogen_column_density=nH,
-                               data_directory=config.data_directory())
+                               data_directory=config.sys_config.data_directory)
     print('Making initial cluster directory: {}'.format(clstr.directory))
     io.make_directory(clstr.directory)
     io.make_initial_directories(clstr)
@@ -1591,7 +1600,7 @@ def initialize_cluster(name="", obsids=[], abundance=0.3, redshift=0.0, nH=0.0):
 
 def automated_cluster_init(batch_file):
     print("Automated cluster initialization using: {batch_file}".format(batch_file=batch_file))
-    data_directory = config.data_directory()
+    data_directory = config.sys_config.data_directory
     csv_clusters = io.get_cluster_info_from_csv(batch_file)
     for clstr in csv_clusters:
         cluster_obj = cluster.ClusterObj(name=clstr['name'],

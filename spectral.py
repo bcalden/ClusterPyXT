@@ -20,7 +20,7 @@ def get_arguments():
                         action="store",default=None,
                         help="Points to the cluster config file")
     parser.add_argument("--parallel", "-p", dest="parallel",
-                        action="store_true", default=False,
+                        action="store_true", default=True,
                         help='Run in parallel (default False)')
     parser.add_argument("--num_cpus", "-n", dest="num_cpus",
                         action="store", default=max_cpu, type=int,
@@ -28,7 +28,7 @@ def get_arguments():
                         "Default is max number of cpus available ({} for "
                         "this system.)".format(max_cpu))
     parser.add_argument("--continue", dest='cont',
-                        action='store_true', default=False,
+                        action='store_true', default=True,
                         help='Continue an unfinished run')
     parser.add_argument("--resolution", "-r", dest='resolution',
                         action='store', default=2, type=int,
@@ -59,6 +59,8 @@ def print_stage_tmap_prep(cluster: cluster.ClusterObj):
 
 
 def print_iteration_string(start_time, iteration, total):
+    i = iteration
+    num_region_lists = total
     try:
         elapsed = time.time() - start_time
         time_elapsed_str = time.strftime("%H hours %M minutes %S seconds",
@@ -82,52 +84,67 @@ def print_iteration_string(start_time, iteration, total):
         io.print_red("\n*********************************\n")
 
 
+def calculate_spectral_fits(clstr: cluster.ClusterObj, num_cpus=mp.cpu_count()):
+    args = get_arguments()
+    if args.cont \
+    and io.file_exists(clstr.spec_fits_file) \
+    and io.file_exists(clstr.bad_fits_file) \
+    and io.file_exists(clstr.all_fits_file):
+        print("Continuing spectral fits")
+        regions = clstr.unfinished_regions_to_fit(args.resolution)
+        original = len(clstr.scale_map_regions_to_fit(args.resolution))
+        print('{reg} of {orig} regions left to fit.'.format(
+            reg=len(regions),
+            orig=original)
+        )
+    else:
+        clstr.initialize_best_fits_file()
+        clstr.initialize_worst_fits_file()
+        clstr.initialize_all_fits_file()
+        regions = clstr.scale_map_regions_to_fit(args.resolution)
+    print("Regions to fit: {reg}".format(reg=len(regions)))
+
+    start_time = time.time()
+    num_regions = len(regions)
+    if num_cpus:
+        args.num_cpus = num_cpus
+
+    if args.parallel and args.num_cpus > 1:
+        num_region_lists = (num_regions//args.num_cpus)+1
+        region_lists = np.array_split(regions, num_region_lists)
+        print("Starting {} iterations with ~{} fits per iteration.".format(len(region_lists), len(region_lists[0])))
+        for i, small_region_list in enumerate(region_lists):
+            print_iteration_string(start_time, i, num_region_lists)
+            processes = [mp.Process(target=clstr.fit_region_number, args=(region,)) for region in small_region_list]
+
+            for process in processes:
+                process.start()
+
+            for process in processes:
+                process.join()
+    else:
+        num_regions = len(regions)
+        counter = 0
+        for region in regions:
+            print("Fitting region number {region}".format(region=region))
+            clstr.fit_region_number(region)
+            counter += 1
+            if counter % 10 == 0 or counter == num_regions:
+                print("{} of {} regions complete".format(counter, num_regions))
+                time_elapsed = time.strftime("%H hours %M minutes %S seconds.",
+                                                time.gmtime(time.time() - start_time))
+                print("Time elapsed: {}.".format(time_elapsed))
+    
+    print_stage_tmap_prep(clstr)
+
+
+
 if __name__ == '__main__':
     args = get_arguments()
     if args.cluster_config is not None:
         clstr = cluster.load_cluster(args.cluster_config)
-        if args.cont:
-            print("Continuing spectral fits")
-            regions = clstr.unfinished_regions_to_fit(args.resolution)
-            original = len(clstr.scale_map_regions_to_fit(args.resolution))
-            print('{reg} of {orig} regions left to fit.'.format(
-                reg=len(regions),
-                orig=original)
-            )
-        else:
-            clstr.initialize_best_fits_file()
-            clstr.initialize_worst_fits_file()
-            clstr.initialize_all_fits_file()
-            regions = clstr.scale_map_regions_to_fit(args.resolution)
-        print("Regions to fit: {reg}".format(reg=len(regions)))
-
-        start_time = time.time()
-        num_regions = len(regions)
-        if args.parallel:
-            num_region_lists = (num_regions//args.num_cpus)+1
-            region_lists = np.array_split(regions, num_region_lists)
-            print("Starting {} iterations with ~{} fits per iteration.".format(len(region_lists), len(region_lists[0])))
-            for i, small_region_list in enumerate(region_lists):
-                print_iteration_string(start_time, i, num_region_lists)
-                processes = [mp.Process(target=clstr.fit_region_number, args=(region,)) for region in small_region_list]
-
-                for process in processes:
-                    process.start()
-
-                for process in processes:
-                    process.join()
-
-        else:
-            num_regions = len(regions)
-            counter = 0
-            for region in regions:
-                print("Running pix2pix on region {region}".format(region=region))
-                clstr.fit_region_number(region)
-                counter += 1
-                if counter % 10 == 0 or counter == num_regions:
-                    print("{} of {} regions complete".format(counter, num_regions))
-                    time_elapsed = time.strftime("%H hours %M minutes %S seconds.",
-                                                 time.gmtime(time.time() - start_time))
-                    print("Time elapsed: {}.".format(time_elapsed))
-
-        print_stage_tmap_prep(clstr)
+        calculate_spectral_fits(clstr)
+    else:
+        print("Check help string. spectral.py --help")
+            
+     

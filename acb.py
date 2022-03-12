@@ -9,7 +9,6 @@ import multiprocessing as mp
 import ciao_contrib.runtool as rt
 import ciao
 
-
 def get_arguments():
     help_str = """
     This part of the pypeline creates all of the adaptive circular binned (acb) files
@@ -45,6 +44,7 @@ def get_arguments():
     args = parser.parse_args()
 
     return args, parser
+
 
 
 n = 3500
@@ -114,11 +114,11 @@ def create_circle_region_for(observation: cluster.Observation):
 
     xx, yy = np.meshgrid(newx, newy)
 
-    non_zero_indeces = np.nonzero(radii)
-    nz_rad = radii[non_zero_indeces]
-    nz_x = xx[non_zero_indeces]
-    nz_y = yy[non_zero_indeces]
-    obs_regions = region_map[non_zero_indeces]
+    non_zero_indices = np.nonzero(radii)
+    nz_rad = radii[non_zero_indices]
+    nz_x = xx[non_zero_indices]
+    nz_y = yy[non_zero_indices]
+    obs_regions = region_map[non_zero_indices]
 
     region_array = np.array([(i, j, k, l) for i, j, k, l in zip(nz_x, nz_y, nz_rad, obs_regions)])
 
@@ -161,11 +161,11 @@ def create_circle_regions(cluster):
 
         xx, yy = np.meshgrid(newx, newy)
 
-        non_zero_indeces = np.nonzero(radii)
-        nz_rad = radii[non_zero_indeces]
-        nz_x = xx[non_zero_indeces]
-        nz_y = yy[non_zero_indeces]
-        obs_regions = region_map[non_zero_indeces]
+        non_zero_indices = np.nonzero(radii)
+        nz_rad = radii[non_zero_indices]
+        nz_x = xx[non_zero_indices]
+        nz_y = yy[non_zero_indices]
+        obs_regions = region_map[non_zero_indices]
 
         region_array = np.array([(i, j, k, l) for i, j, k, l in zip(nz_x, nz_y, nz_rad, obs_regions)])
 
@@ -351,8 +351,8 @@ def calculate_radius_at_index(index, cluster: cluster.ClusterObj,
     scale_map_radius = 0
 
     while (dr > min_dr) and (niter < 100):
-        indeces = np.where(radius <= r)
-        counts_map_total = np.sum(counts_image[indeces])
+        indices = np.where(radius <= r)
+        counts_map_total = np.sum(counts_image[indices])
 
         if counts_map_total == 0:
             counter += 1
@@ -360,7 +360,7 @@ def calculate_radius_at_index(index, cluster: cluster.ClusterObj,
             sn_val = 0
             hilo = -1
         else:
-            backmap_tot = np.sum(back_rescale[indeces])
+            backmap_tot = np.sum(back_rescale[indices])
             signal_total = counts_map_total - backmap_tot
             noise_total = np.sqrt(counts_map_total + backmap_tot)
             sn_val = signal_total / noise_total
@@ -394,6 +394,94 @@ def calculate_radius_at_index(index, cluster: cluster.ClusterObj,
     #print("x:{} y:{} -> radius: {}.".format(x_index, y_index, scale_map_radius))
     cluster.write_scale_map_radius(x_index, y_index, scale_map_radius, signal_to_noise)
 
+
+def binary_search_radii(arguments):
+    cluster, index = arguments
+    
+    radii = np.arange(start=1, stop=101, step=0.125)
+    left = 0
+    right = radii.shape[0]
+
+    nx, ny = cluster.combined_mask_data.shape
+    x, y = index
+
+    radius = generate_radius_map(x, y, nx, ny)
+
+    if np.sum(cluster.counts_image[radius<=radii[-1]]) == 0: # radii[-1] == max bin radius
+        update_stuff()
+        print("None @ {index}".format(index=index))
+        cluster.write_scale_map_radius(x, y, 0, 0) # no radius, no S/N ratio
+        return 
+
+    while left < right:
+        middle = int((left+right)/2)
+        r = radii[middle]
+        
+        #indices_within_r = np.where(radius<=r)
+        indices_within_r = radius<=r
+        total_counts = np.sum(cluster.counts_image[indices_within_r])
+        back_map_total = np.sum(cluster.back_rescale[indices_within_r])
+        signal_total = total_counts - back_map_total
+        noise_total = np.sqrt(total_counts + back_map_total)
+        signal_to_noise = signal_total / noise_total
+
+        if signal_to_noise < cluster.target_sn:
+            left = middle + 1
+        else:
+            right = middle
+
+    
+    update_stuff()
+    if r <= 100:
+        cluster.write_scale_map_radius(x, y, r, signal_to_noise)
+    else:
+        cluster.write_scale_map_radius(x, y, 0, 0)
+    
+
+update_counter = 0
+
+def update_stuff():
+    global update_counter 
+    update_counter += 1
+    if update_counter % 1000 == 0: 
+        io.clear_line()
+        count = update_counter * mp.cpu_count()
+        io.write("{count} regions finished.".format(count=count))
+        io.flush()
+    
+
+def fast_acb_creation_parallel(cluster: cluster.ClusterObj, num_cpus=mp.cpu_count()):
+    start_time = time.time()
+    indices = cluster.scale_map_indices
+    print("Calculating {num_regions} regions".format(num_regions=indices.shape[0]))
+    cluster.initialize_scale_map_csv()
+    cluster.back_rescale
+    cluster.counts_image
+    cluster.combined_mask_data
+    pool = mp.Pool(num_cpus)
+    #arguments = [(cluster, index) for index in indices]
+    cluster_list = [cluster for i in range(indices.shape[0])]
+    arguments = zip(cluster_list, indices)
+    print("Starting")
+    pool.map(binary_search_radii, arguments)
+    cluster.write_scale_map_csv_to_fits()
+
+    end_time = time.time()
+    print("Time elapsed {:0.2f} seconds.".format(end_time - start_time))
+
+
+def fast_acb_creation_serial(cluster: cluster.ClusterObj):
+    start_time = time.time()
+
+    indices = cluster.scale_map_indices
+    print("Calculating {num_regions} regions".format(num_regions=indices.shape[0]))
+    cluster.initialize_scale_map_csv()
+    for index in indices:
+        binary_search_radii((cluster, index))
+
+    cluster.write_scale_map_csv_to_fits()
+    end_time = time.time()
+    print("Time elapsed {elapsed:0.2f} seconds.".format(elapsed=end_time - start_time))
 
 def create_scale_map(cluster):
     target_sn = cluster.signal_to_noise
@@ -460,8 +548,8 @@ def create_scale_map(cluster):
                 niter = 0
 
                 while (dr > min_dr) and (niter < 100):
-                    indeces = np.where(radius <= r)
-                    cts_map_total = np.sum(cts_image[indeces])
+                    indices = np.where(radius <= r)
+                    cts_map_total = np.sum(cts_image[indices])
 
                     if cts_map_total == 0:
                         counter += 1
@@ -469,7 +557,7 @@ def create_scale_map(cluster):
                         sn_val = 0
                         hilo = -1
                     else:
-                        backmap_tot = np.sum(back_rescale[indeces])
+                        backmap_tot = np.sum(back_rescale[indices])
                         signal_total = cts_map_total - backmap_tot
                         noise_total = np.sqrt(cts_map_total+backmap_tot)
                         sn_val = signal_total/noise_total
@@ -917,7 +1005,7 @@ def make_commands_lis(cluster: cluster.ClusterObj, resolution):
 def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False):
 
     #coordinates = get_pixel_coordinates(cluster)
-    # indeces of this array are the region number minus 1
+    # indices of this array are the region number minus 1
     # that is, region number 1 is coordinate array index 0
     # region 100 = coordinates[99]
 
@@ -958,9 +1046,10 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
         temperature_error_map[low_x:high_x, low_y:high_y] = (np.abs(temp_error_plus[i] -
                                                              temp_error_minus[i]))/2
         temperature_fractional_error_map[low_x:high_x, low_y:high_y] = \
-            (temperature_error_map[x,y]/temperature_map[x,y])*100
+            (temperature_error_map[x,y]/temperature_map[x,y])
 
-    _update_completed_things(i, len(regions), "regions")
+    if i:
+        _update_completed_things(i, len(regions), "regions")
 
     header = mask_fits[0].header
     # This header contains all coordinate information needed
@@ -980,29 +1069,101 @@ def make_temperature_map(cluster: cluster.ClusterObj, resolution, average=False)
                  overwrite=True)
 
 
-def fitting_preparation(clstr, args=None):
+def make_fit_map(cluster: cluster.ClusterObj, fit_type='Norm', resolution=2):
+    io.make_directory(cluster.output_dir)
 
+    offset = [None, 2, 1, 0][resolution]
+
+    mask_fits = fits.open(cluster.combined_mask)
+    mask = mask_fits[0].data
+
+    scale_map_regions = cluster.scale_map_region_index
+    fits_with_errors = cluster.get_fits_from_file_for(fit_type)
+    fit_map = np.zeros(mask.shape)
+    fit_error_map = np.zeros(mask.shape)
+    fit_fractional_error_map = np.zeros(mask.shape)
+
+    err_high = "{fit_type}_err_+".format(fit_type=fit_type)
+    err_low = "{fit_type}_err_-".format(fit_type=fit_type)
+    regions = fits_with_errors['region']
+    actual_fits = fits_with_errors[fit_type]
+    fit_err_plus = fits_with_errors[err_high]
+    fit_err_low = fits_with_errors[err_low]
+
+    for i, region in enumerate(regions):
+        if i% 1000 == 0:
+            _update_completed_things(i, len(regions), 'regions')
+        coordinates = cluster.coordinates_for_scale_map_region(region, scale_map_regions)
+        x = int(coordinates[0])
+        y = int(coordinates[1])
+        low_x = x - offset
+        high_x = x + offset + 1
+        low_y = y - offset
+        high_y = y + offset + 1
+
+        fit_map[low_x:high_x, low_y:high_y] = actual_fits[i]
+        fit_error_map[low_x:high_x, low_y:high_y] = (np.abs(fit_err_plus[i] -
+                                                                fit_err_low[i]))/2
+        fit_fractional_error_map[low_x:high_x, low_y:high_y] = \
+                (fit_error_map[x,y]/fit_map[x,y])
+
+    try:
+        if i:
+            _update_completed_things(i, len(regions), 'regions')
+    except ValueError:
+        io.print_red("Error trying to load the file, {spec_fits_file}".format(spec_fits_file=cluster.spec_fits_file))
+        raise
+    header = mask_fits[0].header
+
+    
+
+
+    fits.writeto(cluster.fit_map_filename(fit_type),
+                fit_map,
+                header,
+                overwrite=True )
+    
+    fits.writeto(cluster.fit_error_map_filename(fit_type),
+                fit_error_map,
+                header,
+                overwrite=True)
+
+    fits.writeto(cluster.fit_fractional_error_map_filename(fit_type),
+                fit_fractional_error_map,
+                header,
+                overwrite=True)
+    
+
+
+def fitting_preparation(clstr, args=None, num_cpus=None):
+    
     if args is None:
         resolution = 2
+        cpu_count = mp.cpu_count()
     else:
         resolution = args.resolution
+        cpu_count = args.num_cpus
 
+    if num_cpus:
+        cpu_count = num_cpus
+        
     print("Creating the scale map.")
-    create_scale_map_in_parallel(clstr)
+    #create_scale_map_in_parallel(clstr)
+    fast_acb_creation_parallel(clstr, num_cpus=cpu_count)
 
     print("Creating the region index map.")
     create_scale_map_region_index(clstr)
 
     print("Preparing the high-energy images and backgrounds.")
-    prepare_efftime_circle_parallel(clstr, args.num_cpus)
+    prepare_efftime_circle_parallel(clstr, cpu_count)
 
     print("Calculating effective times.")
-    #calculate_effective_times_in_parallel(clstr, args.num_cpus)
+    #calculate_effective_times_in_parallel(clstr, cpu_count)
     #calculate_effective_times_in_serial(clstr)
-    calculate_effective_times_in_parallel_map(clstr, args.num_cpus)
+    calculate_effective_times_in_parallel_map(clstr, cpu_count)
 
     print("Creating circular fitting regions.")
-    create_circle_regions_in_parallel(clstr, args.num_cpus)
+    create_circle_regions_in_parallel(clstr, cpu_count)
 
     print("Preparing for the spectral fits.")
     prepare_for_spec(clstr)
@@ -1038,7 +1199,7 @@ def eff_times_to_fits(clstr: cluster.ClusterObj):
 
 def make_density_map(clstr: cluster.ClusterObj):
 
-    xray_sb_fits = fits.open(clstr.xray_surface_brightness_nosrc_filename)
+    xray_sb_fits = fits.open(clstr.smoothed_xray_sb_cropped_nosrc_filename)
     xray_sb_header = xray_sb_fits[0].header
 
     xray_sb = xray_sb_fits[0].data
@@ -1073,20 +1234,14 @@ def reproject_temperature_map(clstr: cluster.ClusterObj):
 
 
 def get_matching_density_and_temperature_maps(clstr: cluster.ClusterObj):
+    if not io.file_exists(clstr.density_map_filename):
+        make_density_map(clstr)
 
-    n = make_density_map(clstr)
-    T = clstr.temperature_map
+    n, T = make_sizes_match(input_image=clstr.density_map_filename, second_image=clstr.temperature_map_filename)
+    # n = clstr.density_map
+    # T = clstr.temperature_map
 
-    if n.shape == T.shape:
-        return n, T
-
-    mask = clstr.combined_mask_data
-
-    if n.shape != mask.shape:
-        n = reproject_density_map(clstr)
-
-    if T.shape != mask.shape:
-        T = reproject_temperature_map(clstr)
+    # n, T = make_sizes_match(n, T)
 
     return n, T
 
@@ -1101,6 +1256,9 @@ def make_pressure_map(clstr: cluster.ClusterObj):
 
     fits.writeto(clstr.pressure_map_filename, norm_P, header=clstr.temperature_map_header, overwrite=True)
 
+def make_pressure_error_maps(clstr: cluster.ClusterObj):
+    pass
+
 
 def make_entropy_map(clstr: cluster.ClusterObj):
 
@@ -1108,14 +1266,94 @@ def make_entropy_map(clstr: cluster.ClusterObj):
 
     K = np.zeros(n.shape)
 
-    nonzero_indeces = np.nonzero(n)
+    nonzero_indices = np.nonzero(n)
 
-    K[nonzero_indeces] = T[nonzero_indeces] * ((n[nonzero_indeces])**(-2/3))
+    K[nonzero_indices] = T[nonzero_indices] * ((n[nonzero_indices])**(-2/3))
 
     norm_K = do.normalize_data(K)
 
     fits.writeto(clstr.entropy_map_filename, norm_K, header=clstr.temperature_map_header, overwrite=True)  
     
+def reproject(infile=None, matchfile=None, outfile=None, overwrite=False):
+    rt.reproject_image.punlearn()
+    rt.reproject_image(infile=infile, matchfile=matchfile, outfile=outfile, clobber=overwrite)
+
+
+def repro_filename(original_filename):
+    split_filename = original_filename.split('.')
+    split_filename[-2] += "_repro"
+    return ".".join(split_filename)
+
+def make_smoothed_xray_map(clstr: cluster.ClusterObj):
+    scale_map = clstr.scale_map_file
+    sb_map = clstr.xray_surface_brightness_nosrc_cropped_filename
+
+    print("Using {acb_map_file} and {xray_sb_map_file}".format(
+        acb_map_file=clstr.scale_map_file,
+        xray_sb_map_file=clstr.xray_surface_brightness_nosrc_cropped_filename
+    ))
+
+    sb_map, scale_map = make_sizes_match(input_image=clstr.xray_surface_brightness_nosrc_cropped_filename, second_image=clstr.scale_map_file)
+
+    #sb_map, scale_map = do.make_sizes_match(sb_map, scale_map)
+
+    max_x, max_y = sb_map.shape
+
+    new_map = np.zeros(scale_map.shape)
+
+    for x in range(max_x):
+        for y in range(max_y):
+            if scale_map[x,y]:
+                radius_map = generate_radius_map(x, y, max_x, max_y)
+                radius_mask = radius_map <= scale_map[x,y]
+                new_map[x,y] = sb_map[radius_mask].mean()
+    fits.writeto(clstr.smoothed_xray_sb_cropped_nosrc_filename, new_map, header=clstr.scale_map_header, overwrite=True)
+    print("{smoothed_filename} written. X-ray SB ACB map complete.".format(
+        smoothed_filename=clstr.smoothed_xray_sb_cropped_nosrc_filename
+    ))
+
+def make_sizes_match(input_image="", second_image=""):
+    input_image_data = fits.open(input_image)[0].data
+    second_image_data = fits.open(second_image)[0].data
+
+    image_file = input_image
+    second_file = second_image
+
+    if input_image_data.shape != second_image_data.shape:
+        print("input_image shape = {input_shape}".format(input_shape=input_image_data.shape))
+        print("second_image shape = {input_shape}".format(input_shape=second_image_data.shape))
+        
+        if input_image_data.size > second_image_data.size:
+            print("Reprojecting {second_image}".format(second_image=second_image))
+            reprojected_filename = repro_filename(second_file)
+            print("reproject(infile={second_image}, matchfile={input_image}, outfile={reprojected_filename}, overwrite=True)".format(
+                second_image=second_image,
+                input_image=input_image,
+                reprojected_filename=reprojected_filename
+            ))
+            reproject(infile=second_image,
+                      matchfile=input_image,
+                      outfile=reprojected_filename,
+                      overwrite=True)
+            second_file = reprojected_filename
+        else:
+            print("reprojecting {input_image}".format(input_image=input_image))
+            reprojected_filename = repro_filename(input_image)
+            print("reproject(infile={input_image}, matchfile={second_image}, outfile={reprojected_filename}, overwrite=True)".format(
+                second_image=second_image,
+                input_image=input_image,
+                reprojected_filename=reprojected_filename
+            ))
+            reproject(infile=input_image,
+                      matchfile=second_image,
+                      outfile=reprojected_filename,
+                      overwrite=True)               
+            image_file = reprojected_filename
+
+    first, second = fits.open(image_file)[0].data, fits.open(second_file)[0].data
+    print("{first_shape} == {second_shape}".format(first_shape=first.shape, second_shape=second.shape))
+    return first, second
+
 
 if __name__ == '__main__':
     args, parser = get_arguments()
@@ -1143,3 +1381,8 @@ if __name__ == '__main__':
             fitting_preparation(clstr, args)
     else:
         parser.print_help()
+    # a115 = cluster.load_cluster('A115')
+    # fast_acb_creation_parallel(a115)
+    #fast_acb_creation_serial(a115)
+    
+

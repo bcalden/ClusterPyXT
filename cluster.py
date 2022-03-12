@@ -11,7 +11,6 @@ import logging
 try:
     from ciao_contrib import runtool as rt
     from sherpa.astro import ui as sherpa
-    import pychips
 except ImportError:
     print("Unable to load CIAO. Fitting calls will fail")
     rt = None
@@ -273,6 +272,18 @@ class Observation:
     @property
     def clean(self):
         return io.get_path("{analysis_dir}/acisI_clean.fits".format(analysis_dir=self.analysis_directory))
+    
+    @property
+    def broad_flux_filename(self):
+        return io.get_path("{cluster_dir}/{cluster_name}_{obsid}_broad_flux.img".format(
+            cluster_dir=self.cluster.directory,
+            cluster_name=self.cluster.name,
+            obsid=self.id
+        ))
+
+    @property
+    def broad_flux(self):
+        return io.get_pixel_values(self.broad_flux_filename)
 
     @property
     def sc_clean(self):
@@ -862,6 +873,7 @@ class ClusterObj:
         self.abundance = abundance
         self._last_step_completed = last_step_completed
         self.observation_ids = observation_ids
+
         self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
         self.signal_to_noise = float(signal_to_noise)
 
@@ -882,15 +894,18 @@ class ClusterObj:
         try:
             with open(self.configuration_filename, 'w') as configfile:
                 cluster_config.write(configfile)
+                print("Cluster data written to {}".format(self.configuration_filename))
         except FileExistsError:
             print("File exists and I can't overwrite! File: {}".format(self.configuration_filename))
             sys.exit(1)
         except FileNotFoundError:
-            print("Cannot write cluster config to {}!".format(self.configuration_filename))
-            print("Try updating your configuration file to reflect its current path.")
-            sys.exit(1)
-        print("Cluster data written to {}".format(self.configuration_filename))
-
+            if self.data_directory != config.sys_config.data_directory:
+                self.data_directory = config.sys_config.data_directory
+                self.write_cluster_data()
+            else:
+                print("Cannot write cluster config to {}!".format(self.configuration_filename))
+                print("Try updating your configuration file to reflect its current path.")
+                sys.exit(1)
         return
 
     def initialize_cluster(self):
@@ -904,7 +919,7 @@ class ClusterObj:
 
     def get_cluster_info_from_user(self):
         self.name = io.get_user_input("Enter the cluster name: ", "cluster name")
-        self.data_directory = os.path.normpath(config.data_directory())
+        self.data_directory = os.path.normpath(config.sys_config.data_directory)
 
         self.observation_ids = get_observation_ids()
         self.observations = [Observation(obsid=x, cluster=self) for x in self.observation_ids]
@@ -1010,11 +1025,25 @@ Last Step Completed: {}""".format(self.name,
         return io.get_path("{}/wvt/".format(self.directory))
 
     @property
-    def counts_image(self):
+    def counts_image_filename(self):
         return io.get_path("{combined_dir}/{cluster_name}_comb_ctsimage.fits".format(
             combined_dir=self.combined_directory,
             cluster_name=self.name
         ))
+
+    @property
+    def counts_image(self):
+        if not hasattr(self, '_counts_image'):
+            cts_image = np.zeros(self.combined_mask_data.shape)
+            try:
+                for obs in self.observations:
+                    cts_image += obs.acisI_combined_image
+                self._counts_image = cts_image
+            except FileNotFoundError:
+                print("No combined image file yet.")
+                return None
+        return self._counts_image
+        
 
     @property
     def combined_signal(self):
@@ -1024,11 +1053,26 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
-    def back_rescale(self):
+    def back_rescale_filename(self):
         return io.get_path("{combined_dir}/{cluster_name}_comb_backrescl.fits".format(
             combined_dir=self.combined_directory,
             cluster_name=self.name
         ))
+
+    @property
+    def back_rescale(self):
+        if not hasattr(self, "_back_rescale"):
+            back_rescale = np.zeros(self.combined_mask_data.shape)
+            try:
+                for obs in self.observations:
+                    t_obs = obs.acisI_combined_image_header['EXPOSURE']
+                    t_back = obs.backI_combined_image_header['EXPOSURE']
+                    back_rescale += (t_obs / t_back) * obs.backI_combined_image
+                self._back_rescale = back_rescale
+            except FileNotFoundError:
+                print("No background combined images created yet.")
+                return None
+        return self._back_rescale
 
     @property
     def combined_mask(self):
@@ -1119,6 +1163,13 @@ Last Step Completed: {}""".format(self.name,
         if not hasattr(self, "_scale_map"):
             self._scale_map = io.get_pixel_values(self.scale_map_file)
         return self._scale_map
+
+    @property
+    def scale_map_indices(self):
+        if not hasattr(self, "_scale_map_indices"):
+            mask = self.combined_mask_data
+            self._scale_map_indices = np.vstack(np.where(mask==1)).T
+        return self._scale_map_indices
 
     @property
     def scale_map_header(self):
@@ -1431,6 +1482,35 @@ Last Step Completed: {}""".format(self.name,
                 temps['temp_err_minus'].append(float(row['T_err_-']))
         return temps
 
+    def get_fits_from_file_for(self, fit_type='Norm'):
+        err_high = "{fit_type}_err_+".format(fit_type=fit_type)
+        err_low = "{fit_type}_err_-".format(fit_type=fit_type)
+
+        fits = {'region': [],
+                fit_type: [],
+                err_high: [],
+                err_low: []
+        }
+        with open(self.spec_fits_file, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                fits['region'].append(int(row['region']))
+                fits[fit_type].append(float(row[fit_type]))
+                try:
+                    fits[err_high].append(float(row[err_high]))
+                except ValueError:
+                    fits[err_high].append(np.nan)               
+                try:
+                    fits[err_low].append(float(row[err_low]))
+                except ValueError:
+                    fits[err_low].append(np.nan)
+            return fits
+
+    @property
+    def norm_fits(self):
+        return self.get_fits_from_file_for(fit_type='Norm')
+
+
     @property
     def scale_map_csv_values(self):
         scale_map_values = {'x': [],
@@ -1469,6 +1549,45 @@ Last Step Completed: {}""".format(self.name,
         io.write_numpy_array_to_fits(scale_map, self.scale_map_file, header)
         io.write_numpy_array_to_fits(s_to_n_map, self.sn_map, header)
 
+    def fit_map_filename(self, fit_type):
+        return io.get_path("{output_dir}/{name}_{fit_type}.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
+    
+    def fit_error_map_filename(self, fit_type):
+        return io.get_path("{output_dir}/{name}_{fit_type}_error_map.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
+
+    def fit_fractional_error_map_filename(self, fit_type):
+        return io.get_path("{output_dir}/{name}_{fit_type}_fractional_error_map.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
+
+    def fit_err_map_high_filename(self, fit_type):
+        return io.get_path("{output_dir}/{name}_{fit_type}_high_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
+    
+    def fit_err_map_low_filename(self, fit_type):
+        return io.get_path("{output_dir}/{name}_{fit_type}_low_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name,
+            fit_type=fit_type
+        ))
+
+    
+    @property
+    def norm_map(self):
+        pass
 
     @property
     def average_temperature_fits(self):
@@ -1492,6 +1611,20 @@ Last Step Completed: {}""".format(self.name,
     @property
     def pressure_map_filename(self):
         return io.get_path('{output_dir}/{name}_pressure.fits'.format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
+
+    @property
+    def pressure_map_high_filename(self):
+        return io.get_path("{output_dir}/{name}_pressure_high_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
+
+    @property
+    def pressure_map_low_filename(self):
+        return io.get_path("{output_dir}/{name}_pressure_low_error.fits".format(
             output_dir=self.output_dir,
             name=self.name
         ))
@@ -1537,6 +1670,26 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def temperature_max_error_filename(self):
+        return io.get_path("{output_dir}/{name}_temperature_map_max_error.fits".format(
+            output_dir=self.output_dir,
+            cluster_name=self.name    
+        ))
+
+    @property
+    def temperature_min_error_filename(self):
+        return io.get_path("{output_dir}/{name}_temperature_map_min_error.fits".format(
+            output_dir=self.output_dir,
+            name=self.name    
+        ))
+
+    @property
+    def temperature_error_map(self):
+        if not hasattr(self, "_temperature_map"):
+            self._temperature_error_map = io.get_pixel_values(self.temperature_error_map_filename)
+        return self._temperature_error_map
+
+    @property
     def temperature_fractional_error_map_filename(self):
         return io.get_path('{output_dir}/{cluster_name}_temperature_fractional_error_map.fits'.format(
             output_dir=self.output_dir,
@@ -1556,6 +1709,13 @@ Last Step Completed: {}""".format(self.name,
     @property
     def xray_surface_brightness_cropped_filename(self):
         return io.get_path("{output_dir}/{name}_xray_surface_brightness_cropped.fits".format(
+            output_dir=self.output_dir,
+            name=self.name
+        ))
+
+    @property
+    def smoothed_xray_sb_cropped_nosrc_filename(self):
+        return io.get_path("{output_dir}/{name}_acb_xray_sb_nosrc_cropped.fits".format(
             output_dir=self.output_dir,
             name=self.name
         ))
@@ -1596,6 +1756,10 @@ Last Step Completed: {}""".format(self.name,
             output_dir=self.output_dir,
             name=self.name
         ))
+
+    @property
+    def xray_surface_brightness_nosrc_header(self):
+        return fits.open(self.xray_surface_brightness_nosrc_filename)[0].header
 
     def parallel_observation_lists(self, num_cpus=1):
         import multiprocessing as mp
@@ -1767,7 +1931,7 @@ Last Step Completed: {}""".format(self.name,
 
         if continue_fit:
             print("{region}:\tCreating the model and defining initial fit parameters".format(region=region_number))
-            phabs.nH = self.hydrogen_column_density
+            phabs.nH = float(self.hydrogen_column_density) / 1e22 
             apec.kT = 8.0
             apec.Abundanc = self.abundance
             apec.redshift = self.redshift
@@ -1823,7 +1987,7 @@ Last Step Completed: {}""".format(self.name,
                                              reduced_x2=reduced_x2,
                                              observation_ids=observations)
 
-        # cluster.write_all_fits_to_file(int(region_number),
+    # cluster.write_all_fits_to_file(int(region_number),
             #                                fit_results,
             #                                confidences,
             #                                cluster.observations)
@@ -1836,22 +2000,24 @@ Last Step Completed: {}""".format(self.name,
 
             print("{region}:\tFinished".format(region=region_number))
 
+
+            ### TODO update the below code to exclude pychips
             if output_pdf:
-                sherpa.plot_fit()
-                pychips.set_preference('export.orientation', 'landscape')
-                pychips.set_preference('export.clobber', 'True')
-                pychips.set_preference('export.fittopage', 'True')
-                pychips.print_window("{acb_dir}/{region}.pdf".format(
-                    acb_dir=self.acb_dir,
-                    region=region_number)
-                )
+                print("Update to exclude pychips")
+            #     sherpa.plot_fit()
+            #     pychips.set_preference('export.orientation', 'landscape')
+            #     pychips.set_preference('export.clobber', 'True')
+            #     pychips.set_preference('export.fittopage', 'True')
+            #     pychips.print_window("{acb_dir}/{region}.pdf".format(
+            #         acb_dir=self.acb_dir,
+            #         region=region_number)
+            #     )
 
             return "{region}: {temperature} keV".format(region=region_number,
                                                         temperature=T)
         else:
             io.print_red("No obs to fit for region {}".format(region_number))
-
-
+   
     @property
     def signal_to_noise_threshold(self):
         return 900
@@ -1921,9 +2087,12 @@ def load_cluster(cluster_name: str):
 
 
 def get_cluster_config(clstr_name):
-    data_dir = config.data_directory()
-    config_file = io.get_filename_matching('{0}/{1}/{1}_pypeline_config.ini'.format(data_dir, clstr_name))
-
+    filename = "{data_dir}/{name}/{name}_pypeline_config.ini".format(
+            data_dir=config.sys_config.data_directory,
+            name=clstr_name
+        )
+    config_file = io.get_filename_matching(filename)
+    
     if len(config_file) >= 1:
         return config_file[-1]
     else:
