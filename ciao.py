@@ -13,6 +13,7 @@ import time
 import multiprocessing as mp
 import astropy.io.fits as fits
 import spectral
+from tqdm import tqdm
 
 try:
     from ciao_contrib.cda.data import download_chandra_obsids
@@ -35,31 +36,48 @@ class Stage(IntEnum):
     tmap = 6
 
 
+def download_obsid(obsid):
+    print(f'Downloading {obsid}')
+    return download_chandra_obsids([obsid])
+
 def download_data(cluster):
-    # refactor to make use of the observation class
-
     io.set_working_directory(cluster.directory)
-    print("Downloading observation id(s) {}".format(cluster.observation_ids))
 
-    success = []
-    if not isinstance(cluster.observation_ids, list):
-        cluster.observation_ids = [cluster.observation_ids]
-    for observation in cluster.observation_ids:
-        print("Downloading data from observation {}".format(observation))
+    obsids = [int(obsid) if obsid is not '' else None for obsid in cluster.observation_ids]
 
-        try:
-            success.append(download_chandra_obsids([observation]))
-        except IndexError:
-            print('CIAO failed to download {obsid}. Please re-run stage 1.'.format(obsid=observation))
+    with mp.Pool(10) as pool:
+        results = pool.map(download_obsid, obsids)
 
-        if success[-1]:
-            print("Successfully downloaded data for observation {}.".format(observation))
-            cluster.observation(observation).set_ccds()
-            #observation.set_ccds()
-        else:
-            print("Failed trying to download data for observation {}.".format(observation))
+    # results = pool.map(download_obsid, obsids)
+    _ = [cluster.observation(obsid).set_ccds() for obsid in obsids]
+    return results
 
-    return not (False in success)
+
+# def download_data(cluster):
+#     # refactor to make use of the observation class
+
+#     io.set_working_directory(cluster.directory)
+#     print("Downloading observation id(s) {}".format(cluster.observation_ids))
+
+#     success = []
+#     if not isinstance(cluster.observation_ids, list):
+#         cluster.observation_ids = [cluster.observation_ids]
+#     for observation in cluster.observation_ids:
+#         print("Downloading data from observation {}".format(observation))
+
+#         try:
+#             success.append(download_chandra_obsids([observation]))
+#         except IndexError:
+#             print('CIAO failed to download {obsid}. Please re-run stage 1.'.format(obsid=observation))
+
+#         if success[-1]:
+#             print("Successfully downloaded data for observation {}.".format(observation))
+#             cluster.observation(observation).set_ccds()
+#             #observation.set_ccds()
+#         else:
+#             print("Failed trying to download data for observation {}.".format(observation))
+
+#     return not (False in success)
 
 
 def prepare_to_merge_observations_from(cluster_obj):

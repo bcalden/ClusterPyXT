@@ -1805,7 +1805,7 @@ Last Step Completed: {}""".format(self.name,
 
     def observation(self, id):
         for obs in self.observations:
-            if obs.id == id:
+            if int(obs.id) == int(id):
                 return obs
         raise KeyError("Observation not found for observation {obsid}".format(obsid=id))
 
