@@ -2060,7 +2060,7 @@ def read_cluster_data(filename):
     cluster = ClusterObj()
     cluster.name = cluster_dict['name']
     cluster.observation_ids = cluster_dict['observation_ids'].split(',')
-    cluster.observation_ids = [obsid for obsid in cluster.observation_ids if obsid is not ',']
+    cluster.observation_ids = [obsid for obsid in cluster.observation_ids if obsid != ',']
     cluster.data_directory = cluster_dict['data_directory']
     cluster.hydrogen_column_density = cluster_dict['hydrogen_column_density']
     cluster.redshift = cluster_dict['redshift']
@@ -2073,7 +2073,7 @@ def read_cluster_data(filename):
 
     cluster.observations = [Observation(obsid=x, cluster=cluster) for x in cluster.observation_ids]
 
-    print("Loaded {}".format(cluster))
+    # print("Loaded {}".format(cluster))
 
     return cluster
 

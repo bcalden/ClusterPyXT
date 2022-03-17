@@ -19,7 +19,7 @@ try:
     from ciao_contrib.cda.data import download_chandra_obsids
     import ciao_contrib.logger_wrapper as lw
 
-    lw.initialize_logger("download", verbose=1)
+    lw.initialize_logger("download", verbose=0)
     from ciao_contrib import runtool as rt
 except ImportError:
     print("Failed to import CIAO python scripts. Is CIAO running?")
@@ -37,86 +37,48 @@ class Stage(IntEnum):
 
 
 def download_obsid(obsid):
-    print(f'Downloading {obsid}')
+    # print(f'Downloading {obsid}')
     return download_chandra_obsids([obsid])
 
 def download_data(cluster):
     io.set_working_directory(cluster.directory)
 
-    obsids = [int(obsid) if obsid is not '' else None for obsid in cluster.observation_ids]
-
+    obsids = [int(obsid) if obsid != '' else None for obsid in cluster.observation_ids]
+    num_obsids = len(obsids)
     with mp.Pool(10) as pool:
-        results = pool.map(download_obsid, obsids)
+        results = list(tqdm(
+            pool.imap(download_obsid, obsids), 
+            total=num_obsids, 
+            desc=f'Downloading {num_obsids} observations',
+            unit='observations'))
 
     # results = pool.map(download_obsid, obsids)
     _ = [cluster.observation(obsid).set_ccds() for obsid in obsids]
     return results
 
 
-# def download_data(cluster):
-#     # refactor to make use of the observation class
+# def unzip_data_from(cluster_obj):
+#     print("Unzipping data for {}.".format(cluster_obj.name))
+#     for observation in cluster_obj.observations:
+#         print("Unzipping {}.".format(observation.analysis_directory))
+#         io.set_working_directory(observation.analysis_directory)
+#         all_files_in_directory = os.listdir()
 
-#     io.set_working_directory(cluster.directory)
-#     print("Downloading observation id(s) {}".format(cluster.observation_ids))
-
-#     success = []
-#     if not isinstance(cluster.observation_ids, list):
-#         cluster.observation_ids = [cluster.observation_ids]
-#     for observation in cluster.observation_ids:
-#         print("Downloading data from observation {}".format(observation))
-
-#         try:
-#             success.append(download_chandra_obsids([observation]))
-#         except IndexError:
-#             print('CIAO failed to download {obsid}. Please re-run stage 1.'.format(obsid=observation))
-
-#         if success[-1]:
-#             print("Successfully downloaded data for observation {}.".format(observation))
-#             cluster.observation(observation).set_ccds()
-#             #observation.set_ccds()
-#         else:
-#             print("Failed trying to download data for observation {}.".format(observation))
-
-#     return not (False in success)
-
-
-def prepare_to_merge_observations_from(cluster_obj):
-    print("Preparing to merge the observations.")
-
-    for observation in cluster_obj.observations:
-        print("Preparing observation: {id}".format(id=observation.id))
-        #io.make_directory(observation.analysis_directory)
-        #io.make_directory(observation.reprocessing_directory)
-        #io.copytree(src=observation.primary_directory, dst=observation.analysis_directory)
-        #io.remove_directory(observation.primary_directory)
-        #io.copytree(src=observation.secondary_directory, dst=observation.analysis_directory)
-        #io.remove_directory(observation.secondary_directory)
-
-    return
-
-
-def unzip_data_from(cluster_obj):
-    print("Unzipping data for {}.".format(cluster_obj.name))
-    for observation in cluster_obj.observations:
-        print("Unzipping {}.".format(observation.analysis_directory))
-        io.set_working_directory(observation.analysis_directory)
-        all_files_in_directory = os.listdir()
-
-        files_to_unzip = [gz_file for gz_file in all_files_in_directory if gz_file.endswith('.gz')]
-        for gz_file in files_to_unzip:
-            try:
-                io.gz_unzip(gz_file)
-            except:
-                print("Problem unzipping {}".format(gz_file))
-                print("Data likely corrupted during download.")
-                print("Try deleting {} and starting {} over.".format(cluster_obj.directory, cluster_obj.name))
-                sys.exit(1)
-            try:
-                io.delete(gz_file)
-            except:
-                print("Problem deleting {}. Skipping".format(gz_file))
-                pass
-    return
+#         files_to_unzip = [gz_file for gz_file in all_files_in_directory if gz_file.endswith('.gz')]
+#         for gz_file in files_to_unzip:
+#             try:
+#                 io.gz_unzip(gz_file)
+#             except:
+#                 print("Problem unzipping {}".format(gz_file))
+#                 print("Data likely corrupted during download.")
+#                 print("Try deleting {} and starting {} over.".format(cluster_obj.directory, cluster_obj.name))
+#                 sys.exit(1)
+#             try:
+#                 io.delete(gz_file)
+#             except:
+#                 print("Problem deleting {}. Skipping".format(gz_file))
+#                 pass
+#     return
 
 
 def dates_and_versions_match(acis_filename, background_filename):
@@ -494,9 +456,6 @@ def ciao_hiE_sources(observation):
 
 # final part of runpipe1
 def merge_observations(cluster):
-    prepare_to_merge_observations_from(cluster)
-    #unzip_data_from(cluster)
-    #reprocess_cluster(cluster)
 
     reprocess_cluster_multiobs(cluster) #multiobs test
     ccd_sort(cluster)
@@ -511,7 +470,7 @@ def sources_file_exists(cluster):
 
 
 def remove_sources_from_observation(observation):
-    print("removing sources from {}".format(observation.id))
+    # print("removing sources from {}".format(observation.id))
 
     # remove sources from foreground and background
     fore_or_back = [observation.data_filename, observation.back_filename]
@@ -525,13 +484,13 @@ def remove_sources_from_observation(observation):
         outfile = [observation.acis_nosrc_filename, observation.background_nosrc_filename][i]
         clobber = True
 
-        print("infile: {}".format(infile))
-        print("outfile: {}".format(outfile))
+        # print("infile: {}".format(infile))
+        # print("outfile: {}".format(outfile))
 
         rt.dmcopy.punlearn()
-        rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+        rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber, verbose=0)
         if type_of_obs is observation.background_nosrc_filename:
-            print("Copying background to {}".format(observation.back))
+            # print("Copying background to {}".format(observation.back))
             io.copy(outfile, observation.back)
 
 
@@ -567,13 +526,13 @@ def generate_light_curve(observation):
     tstart = rt.dmkeypar(infile=data_hiE, keyword="TSTART", echo=echo)
     tstop = rt.dmkeypar(infile=data_hiE, keyword="TSTOP", echo=echo)
 
-    print("Creating a lightcurve from the high energy events list with dmextract")
+    # print("Creating a lightcurve from the high energy events list with dmextract")
 
     rt.dmextract.punlearn()
     infile = "{}[bin time={}:{}:{}]".format(data_hiE, tstart, tstop, backbin)
     outfile = "{}/acisI_lcurve_hiE.lc".format(obsid_analysis_dir)
 
-    print('Running dmextract infile={} outfile={} opt=ltc1 clobber=True'.format(infile, outfile))
+    # print('Running dmextract infile={} outfile={} opt=ltc1 clobber=True'.format(infile, outfile))
 
     rt.dmextract(infile=infile,
                  outfile=outfile,
@@ -581,7 +540,7 @@ def generate_light_curve(observation):
 
     lcurve_hiE = outfile
 
-    print("cleaning the lightcurve for {}, press enter to continue.".format(observation.id))
+    # print("cleaning the lightcurve for {}, press enter to continue.".format(observation.id))
 
     rt.deflare.punlearn()
 
@@ -593,12 +552,12 @@ def generate_light_curve(observation):
 
     gti_hiE = outfile
 
-    print("Filtering the event list using GTI info from high energy flares.")
+    # print("Filtering the event list using GTI info from high energy flares.")
 
     infile = "{}[@{}]".format(data, gti_hiE)
     outfile = "{}/acisI_nosrc_hiEfilter.fits".format(obsid_analysis_dir)
 
-    print("running: dmcopy infile={} outfile={} clobber={}".format(infile, outfile, clobber))
+    # print("running: dmcopy infile={} outfile={} clobber={}".format(infile, outfile, clobber))
 
     rt.dmcopy.punlearn()
     rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
@@ -610,87 +569,89 @@ def generate_light_curve(observation):
 
     rt.dmcopy.punlearn()
 
-    rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+    rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber, verbose=0)
 
 
-def lightcurves_with_exclusion(cluster):
-    for observation in cluster.observations:
-        print("Processing {name}/{obsid}".format(
-            name=cluster.name,
-            obsid=observation.id
-        ))
+def lightcurve_with_exclusion_for(observation):
+    data_nosrc_hiEfilter = "{}/acisI_nosrc_hiEfilter.fits".format(observation.analysis_directory)
 
-        # data_nosrc_hiEfilter = "{}/acisI_nosrc_fullE.fits".format(obs_analysis_dir)
+    # print("Creating the image with sources removed")
 
-        data_nosrc_hiEfilter = "{}/acisI_nosrc_hiEfilter.fits".format(observation.analysis_directory)
+    data = observation.acis_nosrc_filename
 
-        print("Creating the image with sources removed")
+    image_nosrc = "{}/img_acisI_nosrc_fullE.fits".format(observation.analysis_directory)
 
-        data = observation.acis_nosrc_filename
+    if io.file_exists(observation.exclude_file):
+        # print("Removing sources from event file to be used in lightcurve")
 
-        image_nosrc = "{}/img_acisI_nosrc_fullE.fits".format(observation.analysis_directory)
-
-        if io.file_exists(observation.exclude_file):
-            print("Removing sources from event file to be used in lightcurve")
-
-            infile = "{}[exclude sky=region({})]".format(data_nosrc_hiEfilter, observation.exclude)
-            outfile = "{}/acisI_lcurve.fits".format(observation.analysis_directory)
-            clobber = True
-
-            rt.dmcopy.punlearn()
-            rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
-
-            data_lcurve = "{}/acisI_lcurve.fits".format(observation.analysis_directory)
-        else:
-            yes_or_no = io.check_yes_no(
-                "Are there sources to be excluded from observation {} while making the lightcurve? ".format(observation.id))
-
-            if yes_or_no:  # yes_or_no == True
-                print("Create the a region file with the region to be excluded and save it as {}".format(observation.exclude_file))
-            else:
-                data_lcurve = data_nosrc_hiEfilter
-
-        backbin = 259.28
-
-        echo = True
-        tstart = rt.dmkeypar(infile=data_nosrc_hiEfilter, keyword="TSTART", echo=echo)
-        tstop = rt.dmkeypar(infile=data_nosrc_hiEfilter, keyword="TSTOP", echo=echo)
-
-        print("Creating lightcurve from the events list with dmextract")
-
-        infile = "{}[bin time={}:{}:{}]".format(data_lcurve, tstart, tstop, backbin)
-        outfile = "{}/acisI_lcurve.lc".format(observation.analysis_directory)
-        opt = "ltc1"
-
-        rt.dmextract.punlearn()
-        rt.dmextract(infile=infile, outfile=outfile, opt=opt, clobber=clobber)
-
-        lcurve = outfile
-
-        print("Cleaning the lightcurve by removing flares with deflare. Press enter to continue.")
-
-        rt.deflare.punlearn()
-        infile = lcurve
-        outfile = "{}/acisI_gti.gti".format(observation.analysis_directory)
-        method = "clean"
-        save = "{}/acisI_lcurve".format(observation.analysis_directory)
-
-        rt.deflare(infile=infile, outfile=outfile, method=method, save=save)
-
-        gti = outfile
-
-        print("filtering the event list using GTI info just obtained.")
-
-        infile = "{}[@{}]".format(data_nosrc_hiEfilter, gti)
-        outfile = observation.clean
+        infile = "{}[exclude sky=region({})]".format(data_nosrc_hiEfilter, observation.exclude)
+        outfile = "{}/acisI_lcurve.fits".format(observation.analysis_directory)
         clobber = True
 
+        rt.dmcopy.punlearn()
         rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
 
-        data_clean = outfile
+        data_lcurve = "{}/acisI_lcurve.fits".format(observation.analysis_directory)
+    else:
+        yes_or_no = io.check_yes_no(
+            "Are there sources to be excluded from observation {} while making the lightcurve? ".format(observation.id))
 
-        print("Don't forget to check the light curves!")
+        if yes_or_no:  # yes_or_no == True
+            print("Create the a region file with the region to be excluded and save it as {}".format(observation.exclude_file))
+        else:
+            data_lcurve = data_nosrc_hiEfilter
 
+    backbin = 259.28
+
+    echo = True
+    tstart = rt.dmkeypar(infile=data_nosrc_hiEfilter, keyword="TSTART", echo=echo)
+    tstop = rt.dmkeypar(infile=data_nosrc_hiEfilter, keyword="TSTOP", echo=echo)
+
+    infile = "{}[bin time={}:{}:{}]".format(data_lcurve, tstart, tstop, backbin)
+    outfile = "{}/acisI_lcurve.lc".format(observation.analysis_directory)
+    opt = "ltc1"
+
+    rt.dmextract.punlearn()
+    rt.dmextract(infile=infile, outfile=outfile, opt=opt, clobber=clobber)
+
+    lcurve = outfile
+
+    rt.deflare.punlearn()
+    infile = lcurve
+    outfile = "{}/acisI_gti.gti".format(observation.analysis_directory)
+    method = "clean"
+    save = "{}/acisI_lcurve".format(observation.analysis_directory)
+
+    rt.deflare(infile=infile, outfile=outfile, method=method, save=save)
+
+    gti = outfile
+
+    infile = "{}[@{}]".format(data_nosrc_hiEfilter, gti)
+    outfile = observation.clean
+    clobber = True
+    
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+
+    data_clean = outfile
+
+# def lightcurves_with_exclusion(cluster:cluster.ClusterObj, args):
+#     num_obs = len(cluster.observations)
+#     num_runs = (num_obs // args.num_cpus) + 1
+#     obs_lists = np.array_split(cluster.observation_ids, num_runs)
+#     for obs_list in tqdm(obs_lists):
+#         processes = [mp.Process(target=lightcurve_with_exclusion_for, args=(cluster.observation(obsid),)) for obsid in obs_list]
+
+#         for process in processes:
+#             process.start()
+#         for process in processes:
+#             process.join()
+
+
+def lightcurves_with_exclusion(cluster:cluster.ClusterObj, args):
+    for observation in tqdm(cluster.observations, desc='Finishing light curves', unit='observation', total=len(cluster.observations)):
+        lightcurve_with_exclusion_for(observation)
+    
 
 def sources_and_light_curves(cluster):
     print("Source removal:")
@@ -703,21 +664,27 @@ def sources_and_light_curves(cluster):
         print("Generating light curves for {obsid}".format(obsid=observation.id))
         generate_light_curve(observation)
 
+def remove_sources_in_parallel(cluster, args):
+    # Remove point sources for each observation in parallel.
+    with mp.Pool(args.num_cpus) as pool:
+        _ = list(tqdm(pool.imap(remove_sources, cluster.observations), total=len(cluster.observations), desc='Removing point sources', unit='observations'))
 
-def sources_and_light_curves_parallel(cluster, args):
-    print("Removing sources from observations in parallel.")
-    # do_function_on_observations_in_parallel(cluster, function=remove_sources,
-    #                                         num_cpus=args.num_cpus)
 
-    pool = mp.Pool(args.num_cpus)
-    pool.map(remove_sources, cluster.observations)
-
-    print("Generating light curves.")
-    for observation in cluster.observations:  # Doesn't work in parallel yet. Haven't debugged. Serial for now.
+def generate_light_curves(cluster, args):
+    # Generate light curves for each obsertion. Each observation gets its own process
+    for observation in tqdm(cluster.observations, total=len(cluster.observations), desc='Generating light curves', unit='observation'):
         generate_light_curve(observation)
 
-    #pool.map(generate_light_curve, cluster.observations)
-
+    ## For Parallel operation below - sometimes crashes (50/50)
+    # num_obs = len(cluster.observations)
+    # num_runs = (num_obs // args.num_cpus) + 1
+    # obs_lists = np.array_split(cluster.observation_ids, num_runs)
+    # for obs_list in tqdm(obs_lists, desc='Generating light curves in batches', unit='batch'):
+    #     processes = [mp.Process(target=generate_light_curve, args=(cluster.observation(obsid), )) for obsid in obs_list]
+    #     for process in processes:
+    #         process.start()
+    #     for process in processes:
+    #         process.join()
 
 
 def create_global_response_file_for(observation: cluster.Observation):
@@ -755,25 +722,25 @@ def create_global_response_file_for(observation: cluster.Observation):
     rt.specextract.punlearn()
 
     start_time = time.time()
-    print("Running specextract on {}".format(observation.id))
-    print("Size of region0: {}".format(observation.acisI_region_0_size))
+    # print("Running specextract on {}".format(observation.id))
+    # print("Size of region0: {}".format(observation.acisI_region_0_size))
     rt.specextract(infile=infile, outroot=outroot, weight=weight, correctpsf=correct_psf,
                    asp=pcad, combine=combine, mskfile=mask_file, bkgfile=bkg_file, bkgresp=bkg_resp,
                    badpixfile=bad_pixel_file, grouptype=group_type, binspec=binspec, clobber=clobber)
     elapsed = time.time() - start_time
-    print("Elapsed time: {:0.2f} sec(s)".format(elapsed))
+    # print("Elapsed time: {:0.2f} sec(s)".format(elapsed))
 
     infile = "{}[sky=region({})][bin pi]".format(back, observation.response_file_region_covering_ccds)
     outfile = "{}/acisI_back_region_0.pi".format(global_response_dir)
     clobber = True
 
     rt.dmextract.punlearn()
-    print("Running dmextract")
+    # print("Running dmextract")
     #print("Running: dmextract infile={}, outfile={}, clobber={}".format(infile, outfile, clobber))
     start_time = time.time()
     rt.dmextract(infile=infile, outfile=outfile, clobber=clobber)
     elapsed = time.time() - start_time
-    print("Elapsed time: {:0.2f} sec(s)".format(elapsed))
+    # print("Elapsed time: {:0.2f} sec(s)".format(elapsed))
 
     rt.dmhedit.punlearn()
     infile = "{}/acisI_region_0.pi".format(global_response_dir)
@@ -828,11 +795,9 @@ def do_function_on_observations_in_parallel(cluster: cluster.ClusterObj,
     print("Elapsed time: {:2f} seconds".format(elapsed_time))
 
 
-def make_response_files_in_parallel(cluster: cluster.ClusterObj, num_cpus=1):
-    print("Making response files in parallel.")
-    #do_function_on_observations_in_parallel(cluster, function=create_global_response_file_for)
-    pool = mp.Pool(num_cpus)
-    pool.map(create_global_response_file_for, cluster.observations)
+def make_response_files_in_parallel(cluster: cluster.ClusterObj, args):
+    with mp.Pool(args.num_cpus) as pool:
+        _ = list(tqdm(pool.imap(create_global_response_file_for, cluster.observations), desc='Creating global response files', total=len(cluster.observations), unit='observation'))
 
 
 def make_response_files(cluster):
@@ -854,13 +819,13 @@ def make_response_files(cluster):
 
 def make_mask_file(observation: cluster.Observation):
     from astropy.io import fits
-    print("Creating an image mask for {}.".format(observation.id))
+    # print("Creating an image mask for {}.".format(observation.id))
 
     original_fits_filename = observation.acisI_comb_img
 
     mask = fits.open(original_fits_filename)
 
-    print("{} shape: {}".format(original_fits_filename, mask[0].shape))
+    # print("{} shape: {}".format(original_fits_filename, mask[0].shape))
     mask[0].data = np.ones_like(mask[0].data)
 
     mask_filename = observation.temp_acis_comb_mask_filename
@@ -886,9 +851,9 @@ def make_mask_file(observation: cluster.Observation):
 
     rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
 
-    print("Image mask created for {obsid} and saved as {filename}".format(
-        obsid=observation.id, filename=outfile
-    ))
+    # print("Image mask created for {obsid} and saved as {filename}".format(
+    #     obsid=observation.id, filename=outfile
+    # ))
 
     io.delete(observation.temp_acis_comb_mask_filename)
 
@@ -899,27 +864,27 @@ def make_cumulative_mask_file(cluster, observation):
     current_obs_mask_filename = observation.acisI_combined_mask_file
 
     if not io.file_exists(cumulative_mask_filename):
-        print("Cumulative mask file not found. Creating it.")
+        # print("Cumulative mask file not found. Creating it.")
         cumulative_mask = fits.open(current_obs_mask_filename)
         cumulative_mask.writeto(cumulative_mask_filename)
     else:
         current_mask = fits.open(current_obs_mask_filename)
         cumulative_mask = fits.open(cumulative_mask_filename)
 
-        print("Cumulative mask {} shape:{}".format(cumulative_mask_filename,
-                                                   cumulative_mask[0].shape))
-        print("current mask {} shape:{}".format(current_obs_mask_filename,
-                                                   current_mask[0].shape))
+        # print("Cumulative mask {} shape:{}".format(cumulative_mask_filename,
+        #                                            cumulative_mask[0].shape))
+        # print("current mask {} shape:{}".format(current_obs_mask_filename,
+        #                                            current_mask[0].shape))
         try:
             cumulative_mask[0].data = current_mask[0].data + cumulative_mask[0].data
         except ValueError as err:
-            print("Shapes don't match, reprojecting image.")
+            # print("Shapes don't match, reprojecting image.")
             rt.reproject_image(infile=observation.acisI_combined_mask_file,
                                matchfile=cluster.combined_mask,
                                outfile=observation.temp_acis_comb_mask_filename)
             io.move(observation.temp_acis_comb_mask_filename, observation.acisI_combined_mask_file)
 
-            print("Combining masks")
+            # print("Combining masks")
             rt.dmimgcalc(infile=observation.acisI_combined_mask_file,
                          infile2=cluster.combined_mask,
                          operation='add',
@@ -1072,8 +1037,47 @@ def make_masks_for(observation: cluster.Observation):
     make_mask_file(observation)
 
 
+def make_acisI_and_back(observation:cluster.Observation):
+    cluster = observation.cluster
+    infile = "{}[sky=region({})]".format(observation.clean, cluster.master_crop_file)
+    outfile = cluster.temp_acisI_comb
+    clobber = True
 
-def stage_4(cluster: cluster.ClusterObj):
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+
+    # print("{} shape: {}".format(outfile, fits.open(outfile)[0].shape))
+
+    infile = "{}[bin sky=4][energy=700:8000]".format(cluster.temp_acisI_comb)
+    outfile = observation.acisI_comb_img
+    clobber = True
+
+    # print("ObsID: {}\t- Extracting just 0.7keV - 8keV.".format(observation.id))
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+
+    # background
+    infile = "{}[sky=region({})]".format(observation.back, cluster.master_crop_file)
+    outfile = cluster.temp_backI_comb
+    clobber = True
+
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+
+    infile = "{}[bin sky=4][energy=700:8000]".format(cluster.temp_backI_comb)
+    outfile = observation.backI_comb_img
+    clobber = True
+
+    rt.dmcopy.punlearn()
+    rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
+
+    io.delete(cluster.temp_acisI_comb)
+    io.delete(cluster.temp_backI_comb)
+
+    make_mask_file(observation)
+    make_cumulative_mask_file(cluster, observation)
+
+def stage_4(cluster: cluster.ClusterObj, args):
     combined_dir = cluster.combined_directory
 
     io.make_directory(combined_dir)
@@ -1083,45 +1087,10 @@ def stage_4(cluster: cluster.ClusterObj):
         run_ds9_for_master_crop(cluster)
 
     # the contents of this for loop should be refactored/replaced with the make_acisI_and_back function
-    for observation in cluster.observations:
-        infile = "{}[sky=region({})]".format(observation.clean, cluster.master_crop_file)
-        outfile = cluster.temp_acisI_comb
-        clobber = True
-
-        rt.dmcopy.punlearn()
-        rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
-
-        print("{} shape: {}".format(outfile, fits.open(outfile)[0].shape))
-
-        infile = "{}[bin sky=4][energy=700:8000]".format(cluster.temp_acisI_comb)
-        outfile = observation.acisI_comb_img
-        clobber = True
-
-        print("ObsID: {}\t- Extracting just 0.7keV - 8keV.".format(observation.id))
-        rt.dmcopy.punlearn()
-        rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
-
-        # background
-        infile = "{}[sky=region({})]".format(observation.back, cluster.master_crop_file)
-        outfile = cluster.temp_backI_comb
-        clobber = True
-
-        rt.dmcopy.punlearn()
-        rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
-
-        infile = "{}[bin sky=4][energy=700:8000]".format(cluster.temp_backI_comb)
-        outfile = observation.backI_comb_img
-        clobber = True
-
-        rt.dmcopy.punlearn()
-        rt.dmcopy(infile=infile, outfile=outfile, clobber=clobber)
-
-        io.delete(cluster.temp_acisI_comb)
-        io.delete(cluster.temp_backI_comb)
-
-        make_mask_file(observation)
-        make_cumulative_mask_file(cluster, observation)
-
+    # do_function_on_observations_in_parallel(cluster, make_acisI_and_back, args.num_cpus)
+    for observation in tqdm(cluster.observations, desc='Cropping observations', unit='observation', total=len(cluster.observations)):
+        make_acisI_and_back(observation)
+        
     create_combined_images(cluster)
     make_nosrc_cropped_xray_sb(cluster)
 
@@ -1326,8 +1295,9 @@ def run_stage_1(cluster):
     try:
         download_data(cluster)
     except TimeoutError as te:
-        print("Download failed due to a timeout. Appears the connection was dropped.")
-        print("Error: {}".format(te.strerror))
+        io.print_red("Download failed due to a timeout. Appears the connection was dropped. Please re-run stage 1.")
+        io.print_red("Error: {te.strerror}")
+        raise
     merge_observations(cluster)
 
 
@@ -1380,11 +1350,12 @@ def run_stage_2(cluster):
 
 
 def run_stage_2_parallel(cluster, args):
-    print("Starting Stage 2: {}".format(cluster.name))
+    
     check_for_required_stage_2_files(cluster)
-    sources_and_light_curves_parallel(cluster, args)
+    remove_sources_in_parallel(cluster,args)
+    generate_light_curves(cluster, args)
     make_nosrc_xray_sb(cluster)
-    lightcurves_with_exclusion(cluster)
+    lightcurves_with_exclusion(cluster, args)
 
     return
 
@@ -1435,9 +1406,9 @@ def check_for_required_stage_3_files(cluster: cluster.ClusterObj):
     return all_files
 
 
-def run_stage_3(cluster: cluster.ClusterObj, num_cpus=1):
+def run_stage_3(cluster: cluster.ClusterObj, args):
     check_for_required_stage_3_files(cluster)
-    make_response_files_in_parallel(cluster, num_cpus)
+    make_response_files_in_parallel(cluster, args)
 
 
 def finish_stage_3(cluster: cluster.ClusterObj):
@@ -1468,8 +1439,8 @@ def print_stage_4_prep(cluster: cluster.ClusterObj):
     print(prep_str)
 
 
-def run_stage_4(cluster: cluster.ClusterObj):
-    stage_4(cluster)
+def run_stage_4(cluster: cluster.ClusterObj, args):
+    stage_4(cluster, args)
 
 
 def finish_stage_4(cluster: cluster.ClusterObj):
@@ -1579,7 +1550,7 @@ def start_from_last(cluster: cluster.ClusterObj, args=None):
         return
 
     elif last_stage_completed == Stage.three:
-        run_stage_4(cluster)
+        run_stage_4(cluster, args)
         cluster.last_step_completed = Stage.four.value
         finish_stage_4(cluster)
         return

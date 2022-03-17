@@ -1,5 +1,5 @@
-# version 0.9.0a
-# Jan 14, 2020
+# version 1.414.0a
+# Mar 14, 2022
 
 import sys
 import argparse
@@ -15,7 +15,7 @@ import data_operations as do
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
 from multiprocessing import cpu_count
-
+import subprocess
 from matplotlib.backends.backend_qt5agg import FigureCanvasQT as FigureCanvas, NavigationToolbar2QT as NavigationToolbar
 
 from matplotlib.figure import Figure
@@ -108,7 +108,7 @@ def get_arguments():
     parser.add_argument('--ecf', dest='ecf', action='store', default=0.3)
     parser.add_argument('--energy', dest='energy', action='store', default=0.3)
     parser.add_argument('--parallel', dest='parallel', action='store_true', default=False)
-    parser.add_argument('--num_cpus', dest='num_cpus', action='store',type=int, default=max_cpu())
+    parser.add_argument('--num_cpus', dest='num_cpus', action='store',type=int, default=((max_cpu()//2)-2))
     parser.add_argument('--resolution', dest='resolution', action='store', default=2)
 
     args = parser.parse_args()
@@ -120,11 +120,12 @@ def get_arguments():
 
 class Stage3Window(QtWidgets.QMainWindow):
 
-    def __init__(self, parent=None, cluster_obj=None):
+    def __init__(self, parent=None, cluster_obj=None, args=None):
         super(Stage3Window, self).__init__(parent)
         self.parent = parent
         layout = QtWidgets.QVBoxLayout()
         self.cluster = cluster_obj
+        self.args = args
         self.observations = self.cluster.observations
 
         region_file_label = QtWidgets.QLabel(
@@ -134,6 +135,9 @@ class Stage3Window(QtWidgets.QMainWindow):
             acisI_region_0_file=self.observations[0].acisI_region_0_filename
         )) 
 
+        self.create_region_files_button = QtWidgets.QPushButton("Make ACIS region files", self)
+        self.create_region_files_button.clicked.connect(self.make_acis_regions)
+
         obs_string = self.get_obs_string()
         self.obsid_label = QtWidgets.QLabel("{obs_string}".format(obs_string=obs_string))
         
@@ -142,17 +146,38 @@ class Stage3Window(QtWidgets.QMainWindow):
 
         self.run_stage_3_button = QtWidgets.QPushButton("Run Stage 3", self)
         self.run_stage_3_button.clicked.connect(self.run_stage_3)
+        layout.addWidget(self.create_region_files_button)
         layout.addWidget(self.run_stage_3_button)
         
         widget = QtWidgets.QWidget(self)
         widget.setLayout(layout)
 
-        self.setCentralWidget(widget)  
+        self.setCentralWidget(widget)
+
+    def make_acis_regions(self):
+        for observation in self.cluster.observations:
+            acisI_file = observation.clean
+            region_file = observation.acisI_region_0_filename
+            # -regions shape circle -regions format ciao -zoom 0.5 -bin factor 4
+            args = [
+                'ds9', acisI_file, 
+                '-regions', 'save', region_file,
+                '-regions', 'shape', 'circle',
+                '-scale', 'log', 
+                '-bin', 'factor', "4"
+                # '-regions', 'format', 'ciao',
+                # '-zoom', 0.5,
+                # '-bin', 'factor', 4
+            ]
+            subprocess.run(args, capture_output=True)
+
+        obs_string = self.get_obs_string()
+        self.obsid_label.setText(obs_string)          
         
 
     def run_stage_3(self):
         if self.region_files_found():
-            ciao.run_stage_3(self.cluster)
+            ciao.run_stage_3(self.cluster, self.args)
             self.cluster.last_step_completed = Stage.three.value
             ciao.finish_stage_3(self.cluster)
             self.parent.update_stages()
@@ -299,8 +324,9 @@ class ClusterWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(name)
         self.windows = list()
         self.parent=parent
+        self.args = get_arguments()
         layout = QtWidgets.QVBoxLayout()
-
+        
         name_label = QtWidgets.QLabel('Cluster Name', self)
         obsid_label = QtWidgets.QLabel('Observation IDs', self)
         nH_label = QtWidgets.QLabel('Hydrogen Column Density', self)
@@ -493,6 +519,7 @@ class ClusterWindow(QtWidgets.QMainWindow):
 
 
     def run_stage_1(self):
+    
         ciao.run_stage_1(self._cluster_obj)
         self._cluster_obj.last_step_completed = Stage.one.value
         ciao.finish_stage_1(self._cluster_obj)
@@ -512,17 +539,13 @@ class ClusterWindow(QtWidgets.QMainWindow):
         return
 
     def run_stage_3(self):
-        args = get_arguments()
-        # ciao.run_stage_3(self._cluster_obj, args.num_cpus)
-        # self._cluster_obj.last_step_completed = Stage.three.value
-        # ciao.finish_stage_3(self._cluster_obj)
-        win = Stage3Window(self, self._cluster_obj)
+        win = Stage3Window(self, self._cluster_obj, self.args)
         self.windows.append(win)
         win.show()
         
 
     def run_stage_4(self):
-        ciao.run_stage_4(self._cluster_obj)
+        ciao.run_stage_4(self._cluster_obj, self.args)
         self._cluster_obj.last_step_completed = Stage.four.value
         ciao.finish_stage_4(self._cluster_obj)
         self.update_stages()
@@ -606,11 +629,12 @@ class ACBWindow(QtWidgets.QMainWindow):
         self.setWindowTitle('ClusterPyXT - Stage 5 - Binning')
         self.cluster = cluster
         self.parent = parent
+        self.args = get_arguments()
         layout = QtWidgets.QVBoxLayout()
         instruction_label = QtWidgets.QLabel('Adaptive circular bin calculation can be done in parallel (recommended).\n'
         'The maximum number of threads is already selected below.', parent=self)
         self.cpu_label = QtWidgets.QLabel('Number of threads:', parent=self)
-        self.cpu_text = QtWidgets.QLineEdit("{cpu_count}".format(cpu_count=cpu_count()), parent=self)
+        self.cpu_text = QtWidgets.QLineEdit(f"{self.args.num_cpus}", parent=self)
         self.start_button = QtWidgets.QPushButton('Calculate ACB Map')
         self.start_button.clicked.connect(self.start_acb_calculation)
 
