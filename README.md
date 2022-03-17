@@ -1,11 +1,6 @@
 ![](docs/graphics/MainGraphic_700x.jpg)
-## Current beta version for CIAO 4.13
-Introducing the new graphical user interface (GUI) for ClusterPyXT!
-
-To use this version of ClusterPyXT please install CIAO-4.13 using conda as outlined by [here](http://cxc.harvard.edu/ciao/download/conda.html). This version of `ClusterPyXT` requires python 3.6 or greater. See below for further details on the `CIAO` installation.
-
-## CIAO-4.12 update
-Note, for the version of ClusterPyXT compatible with CIAO-4.12, please select that branch (currently in development, dev-CIAO-4.12) above or click [here](https://github.com/bcalden/ClusterPyXT/tree/dev-CIAO-4.12). 
+## Current beta version for CIAO 4.14
+To use this version of ClusterPyXT please install CIAO-4.14 using conda as outlined by [here](http://cxc.harvard.edu/ciao/download/conda.html). This version of `ClusterPyXT` requires python 3.8 or greater, the default for CIAO 4.14. See below for further details on the `CIAO` installation. 
 
 ## Introduction
 ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature maps, pressure maps, surface brightness maps, and density maps. It is open source and under active development. Please feel free to contribute! See the contribution section below for more details. (Even if you're new to everything!)
@@ -14,16 +9,16 @@ ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature
 ![](docs/graphics/pipeline_overview.jpg)
 
 ## Requirements
-This version of `ClusterPyXT` requires `CIAO-4.9` or later (4.11 recommended). The full calibration database (CALDB) is a requirement as well and can be installed with CIAO. 
+This version of `ClusterPyXT` requires `CIAO-4.14`. The full calibration database (CALDB) is a requirement as well and can be installed with CIAO. To do so, during step 2 of the `conda`  environment creation change `caldb_main` to `caldb`. 
 
 ### CIAO Installation
-These instructions are for `CIAO 4.13`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/conda.html). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script. Additionally, it is recommended you install the latest version of `Python` during installation. `Python 3.6` is required at a minimum.
+These instructions are for `CIAO 4.14`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/conda.html). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script. Additionally, it is recommended you install the latest version of `Python` during installation. `Python 3.8` is required at a minimum.
 
-Another requirement for `ClusterPyXT` is the `astropy` python library within the `CIAO` environment. `CIAO 4.13` allows for the easy installation of this library. 
+Another requirement for `ClusterPyXT` is the `astropy` python library within the `CIAO` environment. `CIAO 4.14` allows for the easy installation of this library. 
 After installation, start the `CIAO` environment and run `conda install astropy`. 
 
 ### Download ClusterPyXT
-To download ClusterPyXT, simply run `git clone https://github.com/bcalden/ClusterPyXT.git`.
+To download ClusterPyXT, simply run `git clone --branch dev-CIAO-4.14 https://github.com/bcalden/ClusterPyXT.git`.
 
 ## Running ClusterPyXT
 ### System Configuration
@@ -32,10 +27,10 @@ After following the instructions above, go the `ClusterPyXT` directory and run `
 ### Cluster Initialization
 Next, you must initialize a cluster. At a minimum, you need the name for the cluster and the Chandra Observation IDs you plan on using. Names can be whatever you want (e.g. A85, A115, Bullet, Toothbrush) just recognize the name needs to be valid in directory and file names. That means don't use slashes or other characters disallowed by your filesystem. Observation IDs can be found using the [Chandra Data Archive](https://cda.harvard.edu/chaser/). While you can start the pipeline with just this information, redshift, hydrogen column density, and the metallicity of the cluster are required to complete the spectral fitting. Redshift information can be found at the [NASA/IPAC Extragalactic Database (NED)](https://ned.ipac.caltech.edu). Hydrogen column density information can be found at [NASA HEASARC Tools](https://heasarc.gsfc.nasa.gov/cgi-bin/Tools/w3nh/w3nh.pl). Solar abundance can usually be estimated at `0.3` although you can check the literature to see if a better value for your cluster should be used.
 
-There are various ways to initialize a cluster. To use the CLI GUI(beta), just run `python clusterpyxt.py`.  For a textual guided process, you can run `python clusterpyxt.py --initialize_cluster`. If you prefer to pass all information via command line arguments (can be useful to initialize multiple clusters within a script), the `--cluster_name`, `--nH`, `--redshift`, `--abundance`, and `--obsids` arguments can be used. 
+There are various ways to initialize a cluster. To use the CLI GUI(beta), just run `python clusterpyxt.py`.
 
 ### Processing a Cluster
-After a cluster is initialized, you can simply start/continue the pipeline by running `python clusterpyxt.py --continue` or running `python clusterpyxt.py` and selecting the continue option. The pipeline will prompt for additional input (point source region files, exclusion areas, etc.). Follow a detailed walkthrough below.
+After a cluster is initialized, you can simply start/continue the pipeline by running `python clusterpyxt.py` and selecting the continue option. The pipeline will prompt for additional input (point source region files, exclusion areas, etc.). Follow a detailed walkthrough below.
 
 #### Stage 1
 Required: Cluster initialized following the above process [Cluster Initialization](#cluster-initialization)
