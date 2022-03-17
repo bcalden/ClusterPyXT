@@ -55,9 +55,8 @@ Main output: [RMF](http://cxc.harvard.edu/ciao/dictionary/rmf.html) and [ARF](ht
 
 This stage extracts the RMF and ARF files. Before continuing the pipeline you need to create a region file for each observation. Each observation will need its own region file named acisI_region_0.reg and saved in the respective analysis directory (`../[pipeline_data_dir]/[cluster_name]/[observation_id]/analysis/acisI_region_0.reg`).
 
-To create this file, open the respective acisI_clean.fits file (`../[pipeline_data_dir]/[cluster_name]/[observation_id]/analysis/acisI_clean.fits`) and draw a small circle region containing some of each of the ACIS-I CCD's. This region does not need to contain ALL of the chips, just a piece of each. It can be ~20 pixels (bigger circle=longer runtime). 
+To create this file, select the `Run Stage 3` button and then, the `Make ACIS Region Files` button open the respective acisI_clean.fits file (`../[pipeline_data_dir]/[cluster_name]/[observation_id]/analysis/acisI_clean.fits`) for each observation. When it opens, draw a small circle region containing some of each of the ACIS-I CCD's. This region does not need to contain ALL of the chips, just a piece of each. It can be ~40 arc seconds (bigger circle=longer runtime). Save this region file as `acisI_region_0.reg`, overwriting the file in the observations analysis directory. This save file dialog should open to the right folder with only the `acisI_region_0.reg` file inside. Once you are finished with all observations, click the button to run stage 3. 
 
-After the region files for each observation are created, continue running ClusterPyX by running `python clusterpyxt.py --continue` or through the CLI GUI.
 
 #### Stage 4
 Required: `master_crop-ciaowcs.reg`
