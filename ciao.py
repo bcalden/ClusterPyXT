@@ -163,11 +163,11 @@ def ciao_back(cluster, overwrite=False):
 
                 raise
             try:
-                print(f'Running dmkepar {acis_file} "GAINFILE" echo=True')
+                print(f'Running dmkeypar {acis_file} "GAINFILE" echo=True')
                 acis_gain = rt.dmkeypar(infile=acis_file,
                                         keyword="GAINFILE",
                                         echo=True)
-                print(f'Running dmkepar {local_background_path} "GAINFILE" echo=True')
+                print(f'Running dmkeypar {local_background_path} "GAINFILE" echo=True')
                 background_gain = rt.dmkeypar(infile=local_background_path,
                                             keyword="GAINFILE",
                                             echo=True)
