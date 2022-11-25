@@ -8,6 +8,7 @@ from astropy.io import fits
 import multiprocessing as mp
 import ciao_contrib.runtool as rt
 import ciao
+from tqdm import tqdm
 
 def get_arguments():
     help_str = """
@@ -395,47 +396,47 @@ def calculate_radius_at_index(index, cluster: cluster.ClusterObj,
     cluster.write_scale_map_radius(x_index, y_index, scale_map_radius, signal_to_noise)
 
 
-def binary_search_radii(arguments):
-    cluster, index = arguments
+# def binary_search_radii(arguments):
+#     cluster, index = arguments
     
-    radii = np.arange(start=1, stop=101, step=0.125)
-    left = 0
-    right = radii.shape[0]
+#     radii = np.arange(start=1, stop=101, step=0.125)
+#     left = 0
+#     right = radii.shape[0]
 
-    nx, ny = cluster.combined_mask_data.shape
-    x, y = index
+#     nx, ny = cluster.combined_mask_data.shape
+#     x, y = index
 
-    radius = generate_radius_map(x, y, nx, ny)
+#     radius = generate_radius_map(x, y, nx, ny)
 
-    if np.sum(cluster.counts_image[radius<=radii[-1]]) == 0: # radii[-1] == max bin radius
-        update_stuff()
-        print("None @ {index}".format(index=index))
-        cluster.write_scale_map_radius(x, y, 0, 0) # no radius, no S/N ratio
-        return 
+#     if np.sum(cluster.counts_image[radius<=radii[-1]]) == 0: # radii[-1] == max bin radius
+#         update_stuff()
+#         print("None @ {index}".format(index=index))
+#         cluster.write_scale_map_radius(x, y, 0, 0) # no radius, no S/N ratio
+#         return 
 
-    while left < right:
-        middle = int((left+right)/2)
-        r = radii[middle]
+#     while left < right:
+#         middle = int((left+right)/2)
+#         r = radii[middle]
         
-        #indices_within_r = np.where(radius<=r)
-        indices_within_r = radius<=r
-        total_counts = np.sum(cluster.counts_image[indices_within_r])
-        back_map_total = np.sum(cluster.back_rescale[indices_within_r])
-        signal_total = total_counts - back_map_total
-        noise_total = np.sqrt(total_counts + back_map_total)
-        signal_to_noise = signal_total / noise_total
+#         #indices_within_r = np.where(radius<=r)
+#         indices_within_r = radius<=r
+#         total_counts = np.sum(cluster.counts_image[indices_within_r])
+#         back_map_total = np.sum(cluster.back_rescale[indices_within_r])
+#         signal_total = total_counts - back_map_total
+#         noise_total = np.sqrt(total_counts + back_map_total)
+#         signal_to_noise = signal_total / noise_total
 
-        if signal_to_noise < cluster.target_sn:
-            left = middle + 1
-        else:
-            right = middle
+#         if signal_to_noise < cluster.target_sn:
+#             left = middle + 1
+#         else:
+#             right = middle
 
     
-    update_stuff()
-    if r <= 100:
-        cluster.write_scale_map_radius(x, y, r, signal_to_noise)
-    else:
-        cluster.write_scale_map_radius(x, y, 0, 0)
+    # update_stuff()
+    # if r <= 100:
+    #     cluster.write_scale_map_radius(x, y, r, signal_to_noise)
+    # else:
+    #     cluster.write_scale_map_radius(x, y, 0, 0)
     
 
 update_counter = 0
@@ -450,6 +451,110 @@ def update_stuff():
         io.flush()
     
 
+def binary_search_radii_wrapper(args):
+    image, index, search_radii, s_to_n = args
+    return binary_search_radii(image, index, search_radii, float(s_to_n))
+
+def binary_search_radii(image=np.zeros(0), index=(0,0), search_radii=np.arange(1,100.125,0.125), s_to_n=40):
+    """Use a binary search algorithm to find the smallest radius circular bin, centered at the given index,
+    that affords the desired signal to noise ratio. 
+    
+    Keyword arguments:
+    image        -- The image you are binning (2d numpy array)
+    index        -- The pixel within the image the circular bin is centered on (e.g. [0,0])
+    search_radii -- The various radii to search through in an effort to find the smallest (1D numpy array)
+    s_to_n       -- The desired signal to noise ratio each bin must achieve.
+    
+    returns      -- x,y (the seperated index argument), bin radius, signal to noise
+    """
+    
+    radii = search_radii
+    left = 0
+    right = radii.shape[0]
+
+    nx, ny = image.shape
+    x, y = index
+    max_radii = search_radii[-1]
+    
+    buff_radius = int(max_radii+2)
+
+    x1 = x - buff_radius
+    x1 = 0 if x1 < 0 else x1
+    x2 = x + buff_radius
+    x2 = nx if x2 > nx else x2
+
+    y1 = y - buff_radius
+    y1 = 0 if y1 < 0 else y1
+    y2 = y + buff_radius
+    y2 = ny if y2 > ny else y2
+
+    small_image = image[x1:x2, y1:y2]
+    
+    radius = generate_radius_map(x, y, nx, ny)[x1:x2, y1:y2]
+    
+
+    if np.sum(small_image[radius<=radii[-1]]) == 0: 
+        return x,y,0,0
+
+    last_good_radii = None
+    last_good_s_to_n = 0
+    while left < right:
+        middle = int((left+right)/2)
+        r = radii[middle]
+        
+        indices_within_r = radius<=r
+        total_counts = np.sum(small_image[indices_within_r])
+        noise_total = np.sqrt(total_counts)
+        signal_to_noise = total_counts / noise_total
+
+        if signal_to_noise < s_to_n:
+            left = middle + 1
+        else:
+            last_good_radii=r
+            last_good_s_to_n = signal_to_noise
+            right = middle
+        
+    if r <= 100:
+        return x,y,last_good_radii,last_good_s_to_n
+    else:
+        counter += 1
+                
+        return x,y,0,0
+        
+        
+def generate_acb_scale_map_for(indices=None, image=np.zeros(0), max_bin_radius=100, step_size=0.125, s_to_n=40, num_processes=20):
+    """Generate an adaptive circular bin map for the given image.
+    
+    Keyword arguments:
+    image          -- The image you want an adaptive circular bin map for (2D numpy array)
+    max_bin_radius -- The maximum bin radius for each circular bin (int)
+    step_size      -- The step size between different radii. (float)
+    s_to_n         -- The desired signal to noise ratio for each bin (int although can be float)
+    num_processes  -- The number of processes you want to use for your multiprocessing pool (int)
+    
+    returns -- The adaptive circular bin map and the signal to noise map (both 2D numpy arrays)
+    """
+    # indices = np.vstack(np.where(~np.isnan(image))).T
+    radii_to_search = np.arange(start=1, stop=max_bin_radius+step_size, step=step_size)
+    acb_scale_map = np.zeros(image.shape)
+    s_to_n_map = np.zeros(image.shape)
+    
+    arguments = [[image, index, radii_to_search, s_to_n] for index in indices]
+    with mp.Pool(num_processes) as pool:
+        results = list(tqdm(pool.imap(binary_search_radii_wrapper, arguments), total=len(arguments), desc="Calculating ACB Map"))
+    
+    
+    np_res = np.array(results)
+    print(np_res.shape)
+    x = np_res[:,0].astype(int)
+    y = np_res[:,1].astype(int)
+
+    acb_scale_map[x,y] = np_res[:,2]
+    s_to_n_map[x,y] = np_res[:,3]
+    
+    return acb_scale_map, s_to_n_map
+
+
 def fast_acb_creation_parallel(cluster: cluster.ClusterObj, num_cpus=mp.cpu_count()):
     start_time = time.time()
     indices = cluster.scale_map_indices
@@ -458,13 +563,11 @@ def fast_acb_creation_parallel(cluster: cluster.ClusterObj, num_cpus=mp.cpu_coun
     cluster.back_rescale
     cluster.counts_image
     cluster.combined_mask_data
-    pool = mp.Pool(num_cpus)
-    #arguments = [(cluster, index) for index in indices]
-    cluster_list = [cluster for i in range(indices.shape[0])]
-    arguments = zip(cluster_list, indices)
-    print("Starting")
-    pool.map(binary_search_radii, arguments)
-    cluster.write_scale_map_csv_to_fits()
+
+    scale_map, s_to_n_map = generate_acb_scale_map_for(indices, cluster.counts_image, num_processes=num_cpus, s_to_n=cluster.signal_to_noise)
+    
+    io.write_numpy_array_to_fits(scale_map, cluster.scale_map_file, cluster.xray_surface_brightness_nosrc_header)
+    io.write_numpy_array_to_fits(s_to_n_map, f'{cluster.acb_dir}/{cluster.name}_signal_to_noise_map.fits', cluster.xray_surface_brightness_nosrc_header)
 
     end_time = time.time()
     print("Time elapsed {:0.2f} seconds.".format(end_time - start_time))
@@ -482,128 +585,6 @@ def fast_acb_creation_serial(cluster: cluster.ClusterObj):
     cluster.write_scale_map_csv_to_fits()
     end_time = time.time()
     print("Time elapsed {elapsed:0.2f} seconds.".format(elapsed=end_time - start_time))
-
-def create_scale_map(cluster):
-    target_sn = cluster.signal_to_noise
-
-    mask = cluster.combined_mask_data
-
-    cts_image = np.zeros(mask.shape)
-    back_rescale = np.zeros(mask.shape)
-
-    for obs in cluster.observations:
-        cts_image += obs.acisI_combined_image
-        t_obs = obs.acisI_combined_image_header['EXPOSURE']
-
-        t_back = obs.backI_combined_image_header['EXPOSURE']
-
-        back_rescale += (t_obs/t_back)*obs.backI_combined_image
-
-    signal = cts_image - back_rescale
-
-    signal[np.where(signal < 0)] = 0
-
-    sz = signal.shape
-    max_x = sz[0]
-    max_y = sz[1]
-
-    # radius_map = np.zeros(sz)
-
-    scale_map = np.zeros(sz)
-    sn_map = np.zeros(sz)
-
-    pix_x = np.zeros(sz)
-    pix_y = np.zeros(sz)
-
-    for j in range(max_y):
-        for i in range(max_x):
-            pix_x[i, j] = float(i)
-            pix_y[i, j] = float(j)
-
-    max_radius = 100
-    r = max_radius + 1  # +1 may be a remnant of IDL indexing
-    #dr = 24.0
-    min_dr = 0.125
-
-    num_pix = max_x * max_y
-
-    ci = 0
-    counter = 0
-    start_time = time.time()
-
-
-    for cj in range(0, max_y):
-        #print("{} out of {} pixels complete.".format(cj*ci, num_pix))
-        _update_completed_things(cj*ci, num_pix, "pixels")
-        for ci in range(0, max_x):
-            if mask[ci, cj] == 1:
-                delta_x = ci-pix_x
-                delta_y = cj-pix_y
-
-                # an array where each value is the distance away from ci,cj
-                radius = np.sqrt(delta_x**2 + delta_y**2)
-
-                dr = 24.0
-                hilo = 0
-                niter = 0
-
-                while (dr > min_dr) and (niter < 100):
-                    indices = np.where(radius <= r)
-                    cts_map_total = np.sum(cts_image[indices])
-
-                    if cts_map_total == 0:
-                        counter += 1
-                        _source_free_region(counter, ci*cj, num_pix)
-                        sn_val = 0
-                        hilo = -1
-                    else:
-                        backmap_tot = np.sum(back_rescale[indices])
-                        signal_total = cts_map_total - backmap_tot
-                        noise_total = np.sqrt(cts_map_total+backmap_tot)
-                        sn_val = signal_total/noise_total
-                    if float(sn_val) < float(target_sn):
-                        if r > max_radius:
-                            r = max_radius + 1
-
-                            niter = 110
-                            # exit by setting niter=110.
-                            # (niter=100 means niter hit max niter.
-                            # niter=110 means radius hit max radius)
-
-                            sn_map[ci,cj] = 0
-                            scale_map[ci,cj] = 0
-                        else:
-                            if hilo == 1:
-                                dr *= 0.5
-                            r += dr
-                            hilo = -1
-                    else:
-                        snmapval = sn_map[ci, cj]
-                        if (sn_val < snmapval) or (snmapval == 0.0):
-                            sn_map[ci,cj] = sn_val
-                            scale_map[ci, cj] = r
-                        if hilo == -1:
-                            dr *= 0.5
-                        r -= dr
-                        hilo = 1
-
-                    niter += 1
-                # end while
-
-    end_time = time.time()
-    print("Time elapsed {:0.2f} seconds.".format(end_time - start_time))
-
-    io.make_directory(cluster.acb_dir)
-
-    header = cluster.observations[0].acisI_combined_image_header
-
-    io.write_numpy_array_to_fits(scale_map, cluster.scale_map_file, header=header)
-    io.write_numpy_array_to_fits(sn_map, cluster.sn_map, header=header)
-    #obs_cts_image_fits[0].data = scale_map
-    #obs_cts_image_fits.writeto(cluster.scale_map_file, overwrite=True)
-
-    #obs_cts_image_fits[0].data = sn_map
-    #obs_cts_image_fits.writeto(cluster.sn_map, overwrite=True)
 
 
 def prepare_efftime_circle_parallel(cluster: cluster.ClusterObj, num_cpus=1):
@@ -863,8 +844,8 @@ def calculate_effective_times_in_parallel(cluster: cluster.ClusterObj, num_cpus=
 
 
 def calculate_effective_times_in_parallel_map(cluster: cluster.ClusterObj, num_cpus=1):
-    pool = mp.Pool(num_cpus)
-    result = pool.map(calculate_effective_time_for, cluster.observations)
+    with mp.Pool(num_cpus) as pool:
+        result = pool.map(calculate_effective_time_for, cluster.observations)
     return result
 
 
