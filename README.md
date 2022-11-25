@@ -15,10 +15,10 @@ This version of `ClusterPyXT` requires `CIAO-4.14`. The full calibration databas
 These instructions are for `CIAO 4.14`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/conda.html). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script. Additionally, it is recommended you install the latest version of `Python` during installation. `Python 3.8` is required at a minimum.
 
 Another requirement for `ClusterPyXT` is the `astropy` python library within the `CIAO` environment. `CIAO 4.14` allows for the easy installation of this library. 
-After installation, start the `CIAO` environment and run `conda install astropy`. 
+After installation, start the `CIAO` environment and run `conda install astropy tqdm`. 
 
 ### Download ClusterPyXT
-To download ClusterPyXT, simply run `git clone --branch dev-CIAO-4.14 https://github.com/bcalden/ClusterPyXT.git`.
+To download ClusterPyXT, simply run `git clone https://github.com/bcalden/ClusterPyXT.git`.
 
 ## Running ClusterPyXT
 ### System Configuration
