@@ -2,6 +2,7 @@ import numpy as np
 
 
 def normalize_data(image: np.ndarray):
+    image = np.nan_to_num(image)
     normalized_image = (image - image.min()) / (image.max() - image.min())
 
     return normalized_image
