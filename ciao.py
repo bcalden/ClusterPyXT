@@ -668,8 +668,22 @@ def sources_and_light_curves(cluster):
 
 def remove_sources_in_parallel(cluster, args):
     # Remove point sources for each observation in parallel.
-    with mp.Pool(args.num_cpus) as pool:
-        _ = list(tqdm(pool.imap(remove_sources, cluster.observations), total=len(cluster.observations), desc='Removing point sources', unit='observations'))
+    try:
+        with mp.Pool(args.num_cpus) as pool:
+            _ = list(tqdm(pool.imap(remove_sources, cluster.observations), 
+                        total=len(cluster.observations), 
+                        desc='Removing point sources', 
+                        unit='observations')
+                        )
+    except:
+        print(f"Error in removing sources in parallel. CPU count:{args.num_cpus}")
+        print(f"Trying again with single core.")
+
+        for observation in tqdm(cluster.observations, 
+                            total=len(cluster.observations), 
+                            desc='Removing point sources', 
+                            unit='observation'):
+            remove_sources(observation)
 
 
 def generate_light_curves(cluster, args):

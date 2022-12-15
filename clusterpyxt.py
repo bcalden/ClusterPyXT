@@ -108,7 +108,7 @@ def get_arguments():
     parser.add_argument('--ecf', dest='ecf', action='store', default=0.3)
     parser.add_argument('--energy', dest='energy', action='store', default=0.3)
     parser.add_argument('--parallel', dest='parallel', action='store_true', default=False)
-    parser.add_argument('--num_cpus', dest='num_cpus', action='store',type=int, default=((max_cpu()//2)-2))
+    parser.add_argument('--num_cpus', dest='num_cpus', action='store',type=int, default=cpu_count())
     parser.add_argument('--resolution', dest='resolution', action='store', default=2)
 
     args = parser.parse_args()
