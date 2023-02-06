@@ -1776,6 +1776,10 @@ Last Step Completed: {}""".format(self.name,
         ))
 
     @property
+    def xray_surface_brightness_nosrc_cropped_header(self):
+        return fits.open(self.xray_surface_brightness_nosrc_cropped_filename)[0].header
+
+    @property
     def output_dir(self):
         return io.get_path("{cluster_dir}/main_output/".format(
             cluster_dir=self.directory

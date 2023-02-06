@@ -566,8 +566,8 @@ def fast_acb_creation_parallel(cluster: cluster.ClusterObj, num_cpus=mp.cpu_coun
 
     scale_map, s_to_n_map = generate_acb_scale_map_for(indices, cluster.counts_image, num_processes=num_cpus, s_to_n=cluster.signal_to_noise)
     
-    io.write_numpy_array_to_fits(scale_map, cluster.scale_map_file, cluster.xray_surface_brightness_nosrc_header)
-    io.write_numpy_array_to_fits(s_to_n_map, f'{cluster.acb_dir}/{cluster.name}_signal_to_noise_map.fits', cluster.xray_surface_brightness_nosrc_header)
+    io.write_numpy_array_to_fits(scale_map, cluster.scale_map_file, cluster.xray_surface_brightness_nosrc_cropped_header)
+    io.write_numpy_array_to_fits(s_to_n_map, f'{cluster.acb_dir}/{cluster.name}_signal_to_noise_map.fits', cluster.xray_surface_brightness_nosrc_cropped_header)
 
     end_time = time.time()
     print("Time elapsed {:0.2f} seconds.".format(end_time - start_time))
@@ -1293,47 +1293,22 @@ def make_smoothed_xray_map(clstr: cluster.ClusterObj):
         smoothed_filename=clstr.smoothed_xray_sb_cropped_nosrc_filename
     ))
 
-def make_sizes_match(input_image="", second_image=""):
-    input_image_data = fits.open(input_image)[0].data
-    second_image_data = fits.open(second_image)[0].data
+def make_sizes_match(input_image, second_image):
+    input_data = fits.open(input_image)[0].data
+    second_data = fits.open(second_image)[0].data
 
-    image_file = input_image
-    second_file = second_image
-
-    if input_image_data.shape != second_image_data.shape:
-        print("input_image shape = {input_shape}".format(input_shape=input_image_data.shape))
-        print("second_image shape = {input_shape}".format(input_shape=second_image_data.shape))
-        
-        if input_image_data.size > second_image_data.size:
-            print("Reprojecting {second_image}".format(second_image=second_image))
-            reprojected_filename = repro_filename(second_file)
-            print("reproject(infile={second_image}, matchfile={input_image}, outfile={reprojected_filename}, overwrite=True)".format(
-                second_image=second_image,
-                input_image=input_image,
-                reprojected_filename=reprojected_filename
-            ))
-            reproject(infile=second_image,
-                      matchfile=input_image,
-                      outfile=reprojected_filename,
-                      overwrite=True)
-            second_file = reprojected_filename
+    if input_data.shape != second_data.shape:
+        if input_data.size > second_data.size:
+            reprojected_filename = repro_filename(second_image)
+            reproject(infile=second_image, matchfile=input_image, outfile=reprojected_filename, overwrite=True)
+            second_data = fits.open(reprojected_filename)[0].data
         else:
-            print("reprojecting {input_image}".format(input_image=input_image))
             reprojected_filename = repro_filename(input_image)
-            print("reproject(infile={input_image}, matchfile={second_image}, outfile={reprojected_filename}, overwrite=True)".format(
-                second_image=second_image,
-                input_image=input_image,
-                reprojected_filename=reprojected_filename
-            ))
-            reproject(infile=input_image,
-                      matchfile=second_image,
-                      outfile=reprojected_filename,
-                      overwrite=True)               
-            image_file = reprojected_filename
+            reproject(infile=input_image, matchfile=second_image, outfile=reprojected_filename, overwrite=True)
+            input_data = fits.open(reprojected_filename)[0].data
 
-    first, second = fits.open(image_file)[0].data, fits.open(second_file)[0].data
-    print("{first_shape} == {second_shape}".format(first_shape=first.shape, second_shape=second.shape))
-    return first, second
+    return input_data, second_data
+
 
 
 if __name__ == '__main__':
