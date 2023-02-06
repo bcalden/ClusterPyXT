@@ -1,5 +1,5 @@
 ![](docs/graphics/MainGraphic_700x.jpg)
-## Current beta version for CIAO 4.14
+## ClusterPyXT for CIAO 4.14
 To use this version of ClusterPyXT please install CIAO-4.14 using conda as outlined by [here](http://cxc.harvard.edu/ciao/download/conda.html). This version of `ClusterPyXT` requires python 3.8 or greater, the default for CIAO 4.14. See below for further details on the `CIAO` installation. 
 
 ## Introduction
