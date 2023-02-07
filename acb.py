@@ -48,7 +48,7 @@ def get_arguments():
 
 
 
-n = 3500
+n = 6700
 full_x_max = n
 full_y_max = n
 
@@ -1283,6 +1283,7 @@ def make_smoothed_xray_map(clstr: cluster.ClusterObj):
     new_map = np.zeros(scale_map.shape)
 
     for x in range(max_x):
+        print(f'{x} out of {max_x}')
         for y in range(max_y):
             if scale_map[x,y]:
                 radius_map = generate_radius_map(x, y, max_x, max_y)
@@ -1292,6 +1293,44 @@ def make_smoothed_xray_map(clstr: cluster.ClusterObj):
     print("{smoothed_filename} written. X-ray SB ACB map complete.".format(
         smoothed_filename=clstr.smoothed_xray_sb_cropped_nosrc_filename
     ))
+
+def calc_acb_val_for(args):
+    index, sb_map, scale_map = args
+    x, y = index
+    max_x, max_y = sb_map.shape
+
+    if scale_map[x,y]:
+        radius_map = generate_radius_map(x, y, max_x, max_y)
+        radius_mask = radius_map <= scale_map[x,y]
+        return [x,y, sb_map[radius_mask].mean()]
+    return [x,y, 0]
+
+
+def make_smoothed_xray_map_parallel(clstr: cluster.ClusterObj):
+    scale_map = clstr.scale_map_file
+    sb_map = clstr.xray_surface_brightness_nosrc_cropped_filename
+
+    sb_map, scale_map = make_sizes_match(
+        input_image=clstr.xray_surface_brightness_nosrc_cropped_filename, 
+        second_image=clstr.scale_map_file)
+
+    new_map = np.zeros(scale_map.shape)
+
+    indices = np.array(list(np.ndindex(*new_map.shape)))
+
+    args = [[i, sb_map, scale_map] for i in indices]
+            
+    with mp.Pool() as p:
+        results = list(tqdm(p.imap(calc_acb_val_for, args), total=len(args)))
+            
+    results = np.array(results)
+    x = results[:,0].astype(int)
+    y = results[:,1].astype(int)
+    vals = results[:,2]
+    new_map[x,y] = vals
+    fits.writeto(clstr.smoothed_xray_sb_cropped_nosrc_filename, new_map, header=clstr.scale_map_header, overwrite=True)
+    print(f"{clstr.smoothed_xray_sb_cropped_nosrc_filename} written. X-ray SB ACB map complete.")
+
 
 def make_sizes_match(input_image, second_image):
     input_data = fits.open(input_image)[0].data
