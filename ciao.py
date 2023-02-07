@@ -19,7 +19,7 @@ try:
     from ciao_contrib.cda.data import download_chandra_obsids
     import ciao_contrib.logger_wrapper as lw
 
-    lw.initialize_logger("download", verbose=0)
+    lw.initialize_logger("download", verbose=1)
     from ciao_contrib import runtool as rt
 except ImportError:
     print("Failed to import CIAO python scripts. Is CIAO running?")
@@ -46,11 +46,7 @@ def download_data(cluster):
     obsids = [int(obsid) if obsid != '' else None for obsid in cluster.observation_ids]
     num_obsids = len(obsids)
     with mp.Pool(10) as pool:
-        results = list(tqdm(
-            pool.imap(download_obsid, obsids), 
-            total=num_obsids, 
-            desc=f'Downloading {num_obsids} observations',
-            unit='observations'))
+        results = pool.map(download_obsid, obsids)
 
     # results = pool.map(download_obsid, obsids)
     _ = [cluster.observation(obsid).set_ccds() for obsid in obsids]

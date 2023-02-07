@@ -1321,7 +1321,8 @@ def make_smoothed_xray_map_parallel(clstr: cluster.ClusterObj):
     args = [[i, sb_map, scale_map] for i in indices]
             
     with mp.Pool() as p:
-        results = list(tqdm(p.imap(calc_acb_val_for, args), total=len(args)))
+        # results = list(tqdm(p.imap(calc_acb_val_for, args), total=len(args)))
+        results = p.map(calc_acb_val_for, args)
             
     results = np.array(results)
     x = results[:,0].astype(int)
