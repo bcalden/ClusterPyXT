@@ -263,7 +263,7 @@ class ProductMakingWindow(QtWidgets.QMainWindow):
     def smoothed_xray_button_clicked(self):
         self.disable_buttons()
         print("Making smoothed X-ray map.")
-        acb.make_smoothed_xray_map(self.cluster)
+        acb.make_smoothed_xray_map_parallel(self.cluster)
         self.set_enabled()
         print("Done")
     

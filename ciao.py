@@ -19,7 +19,7 @@ try:
     from ciao_contrib.cda.data import download_chandra_obsids
     import ciao_contrib.logger_wrapper as lw
 
-    lw.initialize_logger("download", verbose=0)
+    lw.initialize_logger("download", verbose=1)
     from ciao_contrib import runtool as rt
 except ImportError:
     print("Failed to import CIAO python scripts. Is CIAO running?")
@@ -44,41 +44,12 @@ def download_data(cluster):
     io.set_working_directory(cluster.directory)
 
     obsids = [int(obsid) if obsid != '' else None for obsid in cluster.observation_ids]
-    num_obsids = len(obsids)
+    
     with mp.Pool(10) as pool:
-        results = list(tqdm(
-            pool.imap(download_obsid, obsids), 
-            total=num_obsids, 
-            desc=f'Downloading {num_obsids} observations',
-            unit='observations'))
+        results = pool.map(download_obsid, obsids)
 
-    # results = pool.map(download_obsid, obsids)
     _ = [cluster.observation(obsid).set_ccds() for obsid in obsids]
     return results
-
-
-# def unzip_data_from(cluster_obj):
-#     print("Unzipping data for {}.".format(cluster_obj.name))
-#     for observation in cluster_obj.observations:
-#         print("Unzipping {}.".format(observation.analysis_directory))
-#         io.set_working_directory(observation.analysis_directory)
-#         all_files_in_directory = os.listdir()
-
-#         files_to_unzip = [gz_file for gz_file in all_files_in_directory if gz_file.endswith('.gz')]
-#         for gz_file in files_to_unzip:
-#             try:
-#                 io.gz_unzip(gz_file)
-#             except:
-#                 print("Problem unzipping {}".format(gz_file))
-#                 print("Data likely corrupted during download.")
-#                 print("Try deleting {} and starting {} over.".format(cluster_obj.directory, cluster_obj.name))
-#                 sys.exit(1)
-#             try:
-#                 io.delete(gz_file)
-#             except:
-#                 print("Problem deleting {}. Skipping".format(gz_file))
-#                 pass
-#     return
 
 
 def dates_and_versions_match(acis_filename, background_filename):
