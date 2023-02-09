@@ -45,7 +45,7 @@ def download_data(cluster):
 
     obsids = [int(obsid) if obsid != '' else None for obsid in cluster.observation_ids]
     
-    with mp.Pool(10) as pool:
+    with mp.Pool() as pool:
         results = pool.map(download_obsid, obsids)
 
     _ = [cluster.observation(obsid).set_ccds() for obsid in obsids]
