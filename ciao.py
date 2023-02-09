@@ -784,7 +784,9 @@ def do_function_on_observations_in_parallel(cluster: cluster.ClusterObj,
 
 def make_response_files_in_parallel(cluster: cluster.ClusterObj, args):
     with mp.Pool(args.num_cpus) as pool:
-        _ = list(tqdm(pool.imap(create_global_response_file_for, cluster.observations), desc='Creating global response files', total=len(cluster.observations), unit='observation'))
+        # _ = list(tqdm(pool.imap(create_global_response_file_for, cluster.observations), desc='Creating global response files', total=len(cluster.observations), unit='observation'))
+        pool.map(create_global_response_file_for, tqdm(cluster.observations, 
+            total=len(cluster.observations), unit='observation'))
 
 
 def make_response_files(cluster):
@@ -1077,7 +1079,7 @@ def stage_4(cluster: cluster.ClusterObj, args):
     # do_function_on_observations_in_parallel(cluster, make_acisI_and_back, args.num_cpus)
     for observation in tqdm(cluster.observations, desc='Cropping observations', unit='observation', total=len(cluster.observations)):
         make_acisI_and_back(observation)
-        
+    
     create_combined_images(cluster)
     make_nosrc_cropped_xray_sb(cluster)
 

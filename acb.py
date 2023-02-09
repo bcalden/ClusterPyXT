@@ -541,8 +541,8 @@ def generate_acb_scale_map_for(indices=None, image=np.zeros(0), max_bin_radius=1
     
     arguments = [[image, index, radii_to_search, s_to_n] for index in indices]
     with mp.Pool(num_processes) as pool:
-        results = list(tqdm(pool.imap(binary_search_radii_wrapper, arguments), total=len(arguments), desc="Calculating ACB Map"))
-    
+        # results = list(tqdm(pool.imap(binary_search_radii_wrapper, arguments), total=len(arguments), desc="Calculating ACB Map"))
+        results = pool.map(binary_search_radii_wrapper, tqdm(arguments, desc="Calculating ACB Map"))
     
     np_res = np.array(results)
     print(np_res.shape)
@@ -1322,7 +1322,7 @@ def make_smoothed_xray_map_parallel(clstr: cluster.ClusterObj):
             
     with mp.Pool() as p:
         # results = list(tqdm(p.imap(calc_acb_val_for, args), total=len(args)))
-        results = p.map(calc_acb_val_for, args)
+        results = p.map(calc_acb_val_for, tqdm(args, total=len(args)))
             
     results = np.array(results)
     x = results[:,0].astype(int)
