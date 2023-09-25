@@ -20,7 +20,7 @@ This version of `ClusterPyXT` requires `CIAO-4.15`. The full calibration databas
 These instructions are for `CIAO 4.15`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/conda.html). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script. Additionally, it is recommended you install the latest version of `Python` during installation. `Python 3.10` is required at a minimum.
 
 Another requirement for `ClusterPyXT` is the `astropy`, `tqdm`, and `astroquery` python libraries within the `CIAO` environment. `CIAO 4.15` allows for the easy installation of these libraries. 
-After installation, start the `CIAO` environment and run `conda install astropy tqdm`. 
+After installation, start the `CIAO` environment and run `conda install astropy tqdm astroquery`. 
 
 ### Download ClusterPyXT
 To download this development version of ClusterPyXT, simply run `git clone https://github.com/bcalden/ClusterPyXT.git` and then `git checkout cpxt-dev`.
@@ -43,7 +43,7 @@ Main output: Merged X-ray surface brightness map.
 
 After cluster initialization the pipeline will download, reproject, and merge the observations and backgrounds. This process can take on order of 10s of minutes to hours (for large numbers of observations).  
 
-#### Stage 2
+#### Stage 2 (Not implemented in cpxt-dev)
 Required: `sources.reg` and `exclude.reg` 
 Main output: X-ray surface brightness with sources removed.
 
@@ -53,7 +53,7 @@ Additionally, you need to create a region file containing any regions you wanted
 
 After both files are saved, you can continue ClusterPyXT in the cluster window.
 
-#### Stage 3
+#### Stage 3 (Not implemented in cpxt-dev)
 Required: `acisI_region_0.reg` file for each observation.
 
 Main output: [RMF](http://cxc.harvard.edu/ciao/dictionary/rmf.html) and [ARF](http://cxc.harvard.edu/ciao/dictionary/arf.html) files. 
@@ -63,7 +63,7 @@ This stage extracts the RMF and ARF files. Before continuing the pipeline you ne
 To create this file, select the `Run Stage 3` button and then, the `Make ACIS Region Files` button open the respective acisI_clean.fits file (`../[pipeline_data_dir]/[cluster_name]/[observation_id]/analysis/acisI_clean.fits`) for each observation. When it opens, draw a small circle region containing some of each of the ACIS-I CCD's. This region does not need to contain ALL of the chips, just a piece of each. It can be ~40 arc seconds (bigger circle=longer runtime). Save this region file as `acisI_region_0.reg`, overwriting the file in the observations analysis directory. This save file dialog should open to the right folder with only the `acisI_region_0.reg` file inside. Once you are finished with all observations, click the button to run stage 3. 
 
 
-#### Stage 4
+#### Stage 4 (Not implemented in cpxt-dev)
 Required: `master_crop-ciaowcs.reg`
 
 Main output: Filtered data (0.7-8.0 keV)
@@ -81,7 +81,7 @@ Note: Due to processing complexities, during this stage you may encounter an err
  combine them. This is due to the region splitting pixels and in some observations that pixel may
  be counted where in others it is not. If this happens, draw a new crop region, save it, and re-run.
 
-#### Stage 5
+#### Stage 5 (Not implemented in cpxt-dev)
 Required: All previous stages completed.
 
 Main output: Scale map and regions used for spectral fitting
@@ -90,14 +90,14 @@ This stage only requires all previous stages to be completed. Stage 5 calculates
 
 After this stage is complete, you are ready for spectral fitting.
 
-#### Spectral Fitting
+#### Spectral Fitting (Not implemented in cpxt-dev)
 As there can be anywhere from 10<sup>3</sup> to 10<sup>5</sup> regions to fit, there are multiple ways to create a temperature map. One can either process every region in serial on their local computer, run it in parallel on a single, multicore computer, or even in parallel on a supercomputer. As scheduling on a supercomputer is highly specific to each environment, only a general description is provided. Feel free to contact us for help.
 
 To do the spectral fitting, only a subset of the data is required. If processing on a remote machine, insure the remote machine has the required software and `ClusterPyXT` is configured (see above). Make a directory for your cluster in the remote cluster data directory (set in the system configuration on first run, also set in `ClusterPyXT\pypeline_config.ini`). The files required are the configuration file (`ClusterName_pypeline_config.ini`) and the `acb` folder within the cluster directory. Upload both of these to the remote machines cluster folder you just created. You are now ready for spectral fitting.
 
 To run the spectral fitting portion of the pipeline in serial, click the `Spectral Fitting` button in the cluster window.
 
-#### Temperature and Pressure Map Creation
+#### Temperature and Pressure Map Creation (Not implemented in cpxt-dev)
 After spectral fitting, the last thing to do is create the temperature and pressure maps. This is done by clicking the `Make Final Products` button in the cluster window.
 
 

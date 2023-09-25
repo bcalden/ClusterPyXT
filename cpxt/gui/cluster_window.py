@@ -234,7 +234,8 @@ class ClusterWindow(qt.QMainWindow, ClusterUI):
 
 
     def run_stage_2(self):
-        pass
+        stage_two.run_on(cluster=self.cluster)
+        self.update_stage(Stage.two)
     
     def run_stage_3(self):
         pass

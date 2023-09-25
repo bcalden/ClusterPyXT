@@ -128,6 +128,24 @@ class Cluster:
         """
 
         return Path(f"{self.data_directory}/merged_obs_evt2")
+    
+    @property
+    def main_output_dir(self) -> Path:
+        """
+        This property returns a `pathlib.Path` object pointing to the clusters's
+        main output directory. This is where the merged images are stored. 
+
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            Returns a `pathlib.Path` object pointing to the clusters main output
+            directory.
+        """
+        return Path(f"{self.data_directory}/main_output/")
 
 ################################################################################
 ################################################################################
@@ -294,6 +312,24 @@ class Cluster:
         """
         return Path(f"{self.data_directory}/{self.name}_broad_flux.img")
 
+    @property
+    def xray_sb_nosrc_map_filename(self) -> Path:
+        """
+        The is property returns a `Path` object that points to the merged X-ray 
+        surface brightness map for the cluster with the point sources removed.
+                
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            Path object pointing to the merged X-ray surface brightness map with
+            point sources removed.
+        """
+        return Path(f"{self.main_output_dir}/" \
+                    f"{self.name}_xray_surface_brightness_nosrc.fits")
 
 ################################################################################
 ################################################################################
