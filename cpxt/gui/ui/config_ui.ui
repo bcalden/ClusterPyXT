@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ConfigUI</class>
+ <widget class="QWidget" name="ConfigUI">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>612</width>
+    <height>232</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>ClusterPyXT Configuration</string>
+  </property>
+  <widget class="QLineEdit" name="directory_text">
+   <property name="geometry">
+    <rect>
+     <x>100</x>
+     <y>10</y>
+     <width>401</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="directory_label">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>14</y>
+     <width>87</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Data directory: </string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="find_directory_button">
+   <property name="geometry">
+    <rect>
+     <x>510</x>
+     <y>10</y>
+     <width>88</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Find Directory</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="astro_query_check">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>50</y>
+     <width>357</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Automatically query NASA HEASARC and NED for nH and z?</string>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="obs_download_label">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>84</y>
+     <width>391</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Number of observations to download at one time? (1-5)</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="obs_download_combo">
+   <property name="geometry">
+    <rect>
+     <x>419</x>
+     <y>84</y>
+     <width>181</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <item>
+    <property name="text">
+     <string>1</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>2</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>3</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>4</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>5</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QLabel" name="num_cores_label">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>120</y>
+     <width>404</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Number of CPU cores to use for parallel processing? (Max: {cpu_count}):</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="num_cores_text">
+   <property name="geometry">
+    <rect>
+     <x>419</x>
+     <y>120</y>
+     <width>181</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="log_level_label">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>156</y>
+     <width>241</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Log level (from most to least verbose):</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="log_level_combo">
+   <property name="geometry">
+    <rect>
+     <x>419</x>
+     <y>156</y>
+     <width>181</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <item>
+    <property name="text">
+     <string>10</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>20</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>30</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>40</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>50</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QPushButton" name="save_button">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>192</y>
+     <width>591</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Save Configuration + Continue</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

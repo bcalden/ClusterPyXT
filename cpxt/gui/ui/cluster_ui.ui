@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ClusterUI</class>
+ <widget class="QWidget" name="ClusterUI">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>329</width>
+    <height>661</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <widget class="QWidget" name="">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>9</y>
+     <width>310</width>
+     <height>643</height>
+    </rect>
+   </property>
+   <layout class="QFormLayout" name="formLayout">
+    <item row="0" column="0">
+     <widget class="QLabel" name="name_label">
+      <property name="text">
+       <string>Cluster Name:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QLabel" name="obsid_label">
+      <property name="text">
+       <string>Observation IDs:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0" colspan="2">
+     <widget class="QPlainTextEdit" name="obsid_text">
+      <property name="tabChangesFocus">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="0">
+     <widget class="QLabel" name="nH_label">
+      <property name="text">
+       <string>Hydrogen Column Density (cm^-2)</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="1">
+     <widget class="QLineEdit" name="nH_text">
+      <property name="layoutDirection">
+       <enum>Qt::LeftToRight</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="0">
+     <widget class="QLabel" name="redshift_label">
+      <property name="text">
+       <string>Redshift</string>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="1">
+     <widget class="QLineEdit" name="redshift_text">
+      <property name="layoutDirection">
+       <enum>Qt::LeftToRight</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="0">
+     <widget class="QLabel" name="abundance_label">
+      <property name="text">
+       <string>Metallicity</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="1">
+     <widget class="QLineEdit" name="abundance_text">
+      <property name="layoutDirection">
+       <enum>Qt::LeftToRight</enum>
+      </property>
+      <property name="text">
+       <string>0.3</string>
+      </property>
+     </widget>
+    </item>
+    <item row="7" column="0">
+     <widget class="QLabel" name="sig_to_noise_label">
+      <property name="text">
+       <string>Desired Signal to Noise Ratio</string>
+      </property>
+     </widget>
+    </item>
+    <item row="7" column="1">
+     <widget class="QLineEdit" name="sig_to_noise_text">
+      <property name="layoutDirection">
+       <enum>Qt::LeftToRight</enum>
+      </property>
+      <property name="text">
+       <string>40</string>
+      </property>
+     </widget>
+    </item>
+    <item row="15" column="0" colspan="2">
+     <widget class="QPushButton" name="products_button">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Make Final &amp;Products</string>
+      </property>
+     </widget>
+    </item>
+    <item row="14" column="0" colspan="2">
+     <widget class="QPushButton" name="spectral_fitting_button">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Spectral &amp;Fitting</string>
+      </property>
+     </widget>
+    </item>
+    <item row="13" column="0" colspan="2">
+     <widget class="QPushButton" name="stage_5_button">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Run Stage &amp;5</string>
+      </property>
+     </widget>
+    </item>
+    <item row="12" column="0" colspan="2">
+     <widget class="QPushButton" name="stage_4_button">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Run Stage &amp;4</string>
+      </property>
+     </widget>
+    </item>
+    <item row="11" column="0" colspan="2">
+     <widget class="QPushButton" name="stage_3_button">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Run Stage &amp;3</string>
+      </property>
+     </widget>
+    </item>
+    <item row="10" column="0" colspan="2">
+     <widget class="QPushButton" name="stage_2_button">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Run Stage &amp;2</string>
+      </property>
+     </widget>
+    </item>
+    <item row="9" column="0" colspan="2">
+     <widget class="QPushButton" name="stage_1_button">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Run Stage &amp;1</string>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="0" colspan="2">
+     <widget class="QPushButton" name="save_update_button">
+      <property name="text">
+       <string>&amp;Save and Add Cluster to CPXT</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0" colspan="2">
+     <widget class="QLineEdit" name="name_text"/>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <tabstops>
+  <tabstop>name_text</tabstop>
+  <tabstop>obsid_text</tabstop>
+  <tabstop>nH_text</tabstop>
+  <tabstop>redshift_text</tabstop>
+  <tabstop>abundance_text</tabstop>
+  <tabstop>sig_to_noise_text</tabstop>
+  <tabstop>save_update_button</tabstop>
+  <tabstop>stage_1_button</tabstop>
+  <tabstop>stage_2_button</tabstop>
+  <tabstop>stage_3_button</tabstop>
+  <tabstop>stage_4_button</tabstop>
+  <tabstop>stage_5_button</tabstop>
+  <tabstop>spectral_fitting_button</tabstop>
+  <tabstop>products_button</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>

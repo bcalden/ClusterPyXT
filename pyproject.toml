@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cpxt"
+version = "1.0.415a"
+description = "Tool for creating temperature/pressure maps from CXO data."
+authors = [{name = "Brian Alden", email = "brian.alden@colorado.edu"}]
+maintainers = [{name = "Brian Alden", email = "brian.alden@colorado.edu"}]
+
+requires-python = ">=3.10
+
+dependencies = [
+    "tqdm",
+    "ciao_contrib",
+    "astropy",
+    "astroquery",
+    "lxml",
+    "requests",
+]
+
+classifiers = [
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: POSIX"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/bcalden/ClusterPyXT"

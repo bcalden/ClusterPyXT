@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cpxt.chandra package &mdash; ClusterPyXT 4.14.0a documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="cpxt.cli package" href="cpxt.cli.html" />
+    <link rel="prev" title="cpxt package" href="cpxt.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> ClusterPyXT
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">cpxt</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="cpxt.html">cpxt package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="cpxt.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l4 current"><a class="current reference internal" href="#">cpxt.chandra package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cpxt.cli.html">cpxt.cli package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cpxt.core.html">cpxt.core package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cpxt.gui.html">cpxt.gui package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cpxt.stages.html">cpxt.stages package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cpxt.html#module-cpxt">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ClusterPyXT</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="modules.html">cpxt</a> &raquo;</li>
+          <li><a href="cpxt.html">cpxt package</a> &raquo;</li>
+      <li>cpxt.chandra package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/cpxt.chandra.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cpxt-chandra-package">
+<h1>cpxt.chandra package<a class="headerlink" href="#cpxt-chandra-package" title="Permalink to this headline"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline"></a></h2>
+</section>
+<section id="cpxt-chandra-ccd-module">
+<h2>cpxt.chandra.ccd module<a class="headerlink" href="#cpxt-chandra-ccd-module" title="Permalink to this headline"></a></h2>
+</section>
+<section id="cpxt-chandra-ciao-module">
+<h2>cpxt.chandra.ciao module<a class="headerlink" href="#cpxt-chandra-ciao-module" title="Permalink to this headline"></a></h2>
+</section>
+<section id="module-cpxt.chandra.cluster">
+<span id="cpxt-chandra-cluster-module"></span><h2>cpxt.chandra.cluster module<a class="headerlink" href="#module-cpxt.chandra.cluster" title="Permalink to this headline"></a></h2>
+<p>File: cpxt/chandra/cluster.py
+Author: Brian Alden
+Date: 29 Mar 2022
+Description: This file contains the <cite>ClusterPyXT</cite> <cite>Cluster</cite> class definition. It</p>
+<blockquote>
+<div><p>is the main way we interact with the CIAO cluster files and folders
+as to abstract some of that away.</p>
+</div></blockquote>
+<dl class="py class">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cpxt.chandra.cluster.</span></span><span class="sig-name descname"><span class="pre">Cluster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obsids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydrogen_column_density</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redshift</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abundance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signal_to_noise</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_step_completed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="cpxt.core.html#cpxt.core.stages.Stage" title="cpxt.core.stages.Stage"><span class="pre">cpxt.core.stages.Stage</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Stage.none</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cpxt.chandra.cluster.Cluster" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>ClusterPyXT main data class <cite>Cluster</cite>. This class encodes the properties
+of Chandra X-ray galaxy cluster observations needed for the project.</p>
+<dl class="simple">
+<dt>name<span class="classifier">str</span></dt><dd><p>The name of the cluster. This variable is used to name directories and 
+is the prefix for many filenames. There should be no spaces in the name.
+E.g. Abell 115 -&gt; A115 or Abell_115</p>
+</dd>
+<dt>observation_ids<span class="classifier">str[]</span></dt><dd><p>A list of chandra observation ids for download. These should all be for 
+the same galaxy cluster. E.g. 3233, 15175, 15144</p>
+</dd>
+<dt>hydrogen_column_density<span class="classifier">float</span></dt><dd><p>The hydrogen column density for the cluster in /cm^2 . E.g. 5e19</p>
+</dd>
+<dt>redshift<span class="classifier">float</span></dt><dd><p>The redshift of the cluster. E.g. 0.197</p>
+</dd>
+<dt>abundance<span class="classifier">float</span></dt><dd><p>The solar abundance of the galaxy cluster. E.g. 0.2</p>
+</dd>
+<dt>last_step_completed<span class="classifier">cpxt.core.stages.Stage</span></dt><dd><p>This is a state variable indicating the last step of the pypeline that 
+was completed. It indicates where the pypeline will begin if run without 
+any arguments.</p>
+</dd>
+</dl>
+<p>xray_sb_map : Image (&#64;property)</p>
+<p>temperature_map : Image</p>
+<p>pressure_map : Image</p>
+<p>data_directory : Path</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster.acis_ccd_evt2_file_list">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">acis_ccd_evt2_file_list</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span></em><a class="headerlink" href="#cpxt.chandra.cluster.Cluster.acis_ccd_evt2_file_list" title="Permalink to this definition"></a></dt>
+<dd><p>This function returns a list of the level 2 event files for each CCD,
+from each observation, for the cluster. The individual objects of the 
+list are all strings pointing to the respective files. This is usefull 
+when you want to perform an operation on every level 2 event file for 
+the particular cluster.</p>
+<p>None</p>
+<dl class="simple">
+<dt>list</dt><dd><p>A list of <cite>pathlib.Path</cite> objects pointing to every <cite>acis_ccd#.fits</cite>
+from each of the clusters observations used.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster.acis_ccd_evt2_filenames">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">acis_ccd_evt2_filenames</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pathlib.Path</span></em><a class="headerlink" href="#cpxt.chandra.cluster.Cluster.acis_ccd_evt2_filenames" title="Permalink to this definition"></a></dt>
+<dd><p>This property returns a <cite>Path</cite> object pointing to the file containing a
+list of the clusters level 2 event files per observation per CCD.</p>
+<p>None</p>
+<dl class="simple">
+<dt>Path</dt><dd><p>A <cite>Path</cite> object pointing to the text file containing each CCD level 
+2 event file for each observation for the cluster. This file is used
+to pass all of the level 2 event files we care about to CIAO 
+commands with a much simpler call.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster.config_file">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">config_file</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pathlib.Path</span></em><a class="headerlink" href="#cpxt.chandra.cluster.Cluster.config_file" title="Permalink to this definition"></a></dt>
+<dd><p>This return a <cite>pathlib.Path</cite> object poinging to the <cite>ClusterPyXT</cite> 
+coinfiguration file for this particular cluster. It contains information
+such as the observations ids used, hydrogen column density, redshift
+and the desired signal to noize ratio threshold. This information is 
+saved using the <cite>configparser</cite> class in similar format to a <cite>.ini</cite> file.
+The file is saved at the folloing location (&lt;name&gt; = cluster name):</p>
+<p>/path/to/clusterpyxt-data/&lt;name&gt;/&lt;name&gt;_pypeline_config.ini</p>
+<p>None</p>
+<dl class="simple">
+<dt>Path</dt><dd><p>A <cite>pathlib.Path</cite> object pointing to the clusters config file.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster.data_directory">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data_directory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pathlib.Path</span></em><a class="headerlink" href="#cpxt.chandra.cluster.Cluster.data_directory" title="Permalink to this definition"></a></dt>
+<dd><p>This property returns a <cite>pathlib.Path</cite> object pointing to the cluster’s
+data directory. This property checks first to see if the variable <cite>self._data_directory</cite>
+is intialized yet. If not, create it, then return it.</p>
+<p>None</p>
+<dl class="simple">
+<dt>Path</dt><dd><p>Returns a <cite>pathlib.Path</cite> object pointing to the clusters directory.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster.merged_acis_events">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">merged_acis_events</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pathlib.Path</span></em><a class="headerlink" href="#cpxt.chandra.cluster.Cluster.merged_acis_events" title="Permalink to this definition"></a></dt>
+<dd><p>The is property returns a <cite>Path</cite> object that points to the merged events
+file. This file is created by merging the files listed in 
+<cite>acis_ccd_evt_filenames</cite></p>
+<dl class="simple">
+<dt>&lt;var&gt;<span class="classifier">&lt;type&gt;</span></dt><dd><p>&lt;description&gt;</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>&lt;type&gt;</dt><dd><p>&lt;description&gt;</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster.observations">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">observations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span></em><a class="headerlink" href="#cpxt.chandra.cluster.Cluster.observations" title="Permalink to this definition"></a></dt>
+<dd><p>This function returns a list where each element is an <cite>Observation</cite> 
+class encoding each fo the particular clusters observation ids.</p>
+<dl class="simple">
+<dt>&lt;var&gt;<span class="classifier">&lt;type&gt;</span></dt><dd><p>&lt;description&gt;</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>&lt;type&gt;</dt><dd><p>&lt;description&gt;</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.Cluster.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#cpxt.chandra.cluster.Cluster.save" title="Permalink to this definition"></a></dt>
+<dd><p>Uses the ConfigParser to save the cluster configuration paramters. 
+These parameters are generated by the <cite>__iter__</cite> method defined above.
+They are then turned into a dictionary and passed to the <cite>ConfigParser</cite>
+object to write them to <cite>self.config_file</cite> (defined as a property below)</p>
+<p>None</p>
+<p>None</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.get_cluster_config_file">
+<span class="sig-prename descclassname"><span class="pre">cpxt.chandra.cluster.</span></span><span class="sig-name descname"><span class="pre">get_cluster_config_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cluster_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pathlib.Path</span></span></span><a class="headerlink" href="#cpxt.chandra.cluster.get_cluster_config_file" title="Permalink to this definition"></a></dt>
+<dd><p>This function tries to find the <cite>cpxt</cite> cluster configuration file for the
+passed <cite>cluster_name</cite>. First, it just checks the data</p>
+<dl class="simple">
+<dt>cluster_name<span class="classifier">str</span></dt><dd><p>The name of the cluster we are finding the configuration file for.</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Path</dt><dd><p>A Path object encoding the cluster configuration filename.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cpxt.chandra.cluster.load_cluster">
+<span class="sig-prename descclassname"><span class="pre">cpxt.chandra.cluster.</span></span><span class="sig-name descname"><span class="pre">load_cluster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cluster_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#cpxt.chandra.cluster.Cluster" title="cpxt.chandra.cluster.Cluster"><span class="pre">cpxt.chandra.cluster.Cluster</span></a></span></span><a class="headerlink" href="#cpxt.chandra.cluster.load_cluster" title="Permalink to this definition"></a></dt>
+<dd><p>This function takes a <cite>cluster_name</cite> string, attempts to find the 
+configuration file, and then make a <cite>Cluster</cite> object out of it.</p>
+<dl class="simple">
+<dt>cluster_name<span class="classifier">str</span></dt><dd><p>The name of the cluster we are trying to load. This is also the 
+directory name.</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Cluster</dt><dd><p>A <cite>cpxt</cite> Cluster object pythonizing the desired cluster</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="cpxt-chandra-image-module">
+<h2>cpxt.chandra.image module<a class="headerlink" href="#cpxt-chandra-image-module" title="Permalink to this headline"></a></h2>
+</section>
+<section id="cpxt-chandra-observation-module">
+<h2>cpxt.chandra.observation module<a class="headerlink" href="#cpxt-chandra-observation-module" title="Permalink to this headline"></a></h2>
+</section>
+<section id="module-cpxt.chandra">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-cpxt.chandra" title="Permalink to this headline"></a></h2>
+<p>File: cpxt/chandra/__init__.py
+Author: Brian Alden
+Date: 28 Mar 2022
+Description: The <cite>chandra</cite> module contains the code to make python objects</p>
+<blockquote>
+<div><p>out of Chandra X-ray observations.</p>
+</div></blockquote>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cpxt.html" class="btn btn-neutral float-left" title="cpxt package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cpxt.cli.html" class="btn btn-neutral float-right" title="cpxt.cli package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Brian Alden.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

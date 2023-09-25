@@ -1,0 +1,29 @@
+{
+    "stages": {
+      "stage_1": {
+        "preparation": "You are starting a new cluster in ClusterPyXT. Enter the name for the cluster. If you configured CPXT to query NASA databases for redshift and hydrogen column density, make sure you enter the name recognized by NED (e.g. Abell 115 or A115). Next, select the observations you desire to use for the project (https://cda.harvard.edu/chaser/). Finally, enter the redshift (https://ned.ipac.caltech.edu/), hydrogen column density (https://heasarc.gsfc.nasa.gov/cgi-bin/Tools/w3nh/w3nh.pl), metallicity (0.2 or 0.3 usually), and desired signal to noise ratio (try 40 or 50 to start) for the project. Save the cluster attributes and you are ready to begin stage 1.",
+        "completion": "Stage 1 is complete. The observations have been downloaded and merged into a surface brightness map {sb_map_filename}."
+      },
+      "stage_2": {
+        "preparation": "Now it is time to filter out point sources and high energy flares. To do so, first open the surface brightness map and create regions around sources you want excluded from the data analysis. These are typically foreground point sources one does not want to consider when analyzing the cluster. Save these regions as a DS9 region file named {sources_file}.\nAdditionally, you need to create a region file containing any regions you wanted excluded from the deflaring process. This would include areas such as the peak of cluster emission as these regions may contain high energy events we want to consider in this analysis. Save this region file as {exclude_file}.\nAfter both files are saved, you can continue ClusterPyXT on {cluster_name}.",
+        "completion": "Stage 2 is complete. The point sources removed and a new surface brightness map was saved to {xray_sb_nosrc}. High energy events filtered as well."
+      },
+      "stage_3": {
+        "preparation": "Next is stage 3. This stage extracts the RMF and ARF files. Before continuing the pipeline on {cluster_name}, you need to create a region file for each observation. Each observation will need its own region file named acisI_region_0.reg and saved in the respective analysis directory (e.g. {region_file}).\nTo create this file, open the respective acisI_clean.fits file (e.g. {acisI_clean}) and draw a small circle region containing some of each of the ACIS-I CCD's. This region does not need to contain ALL of the chips, just a piece of each. It can be ~20 pixels (bigger circle=longer runtime).\nAfter the region files for each observation are created, continue running ClusterPyXT on {cluster_name}.",
+        "completion": "Stage 3 is complete."
+      },
+      "stage_4": {
+        "preparation": "Now you need to create a region file enclosing the region you would like to crop the final analysis to. To do so, open the surface brightness file {xray_sb_file} and create a box region containing all parts of the image you want included in the analysis.\nSave this file as: {master_crop}\nAfter this region file is created, continue running ClusterPyXT on {cluster_name}.\nNote: Due to processing complexities, during this stage you may encounter an error where two observations have slightly different dimensions (usually ~1) and the pipeline cannot combine them. This is due to the region splitting pixels and in some observations that pixel may be counted where in others it is not. If this happens, draw a new crop region, save it, and re-run.",
+        "completion": "Stage 4 is complete. The data are filtered and cropped."
+      },
+      "stage_5": {
+        "preparation": "You are now ready for Stage 5. This stage only requires all previous stages to be completed. Stage 5 calculates the adaptive circular bins, generates the scale map, and calculates exposure corrections. It can take a long time (~10s of hours) but is usually less than an hour depending upon the speed of your computer.\nAfter stage 5 is complete, you are ready for spectral fitting.\nPlease continue running ClusterPyXT on {cluster_name}.",
+        "completion": "Stage 5 is complete. Scale map created, adaptive circular bins generated, and various other files generated needed to correct exposures."
+      },
+      "stage_6": {
+        "preparation": "Now ready for spectral fitting. This can be offloaded to a remote machine if necessary. If offloading, copy the cluster configuration file, {cluster_config}, and the acb directory to the remote machine. Update the configuration file to reflect the appropriate path of your data.\nNext, with CIAO running, either continue the next stage in the GUI or run:\npython spectral.py --parallel --resolution 2 -c {name}\n\nThe resolution parameter can be set to either 1 - low resolution, 2 - medium resolution, or 3 - high resolution.\nIf the parallel flag indicates to run in parallel. If the number of cpus is not set (--num_cpus), ClusterPyXT uses the total number of cores on your machine.\nIf you must restart the fitting for any reason, simply add the --continue flag to the above commmand in order to not redo any of the fits.",
+        "completion": "Now you are ready to make the temperature and pressure maps. If offloaded, copy the spectral fits file, {spectral_fits}, back to the local machine.\nNext, run the final stage in the GUI or run\n\npython -m cpxt --temperature_map --resolution 2 --cluster_config_file {cluster_config_file}\n\nThis will create the temperature and pressure maps."
+      }
+    }
+  }
+  
