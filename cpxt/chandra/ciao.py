@@ -20,7 +20,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def download_obsid(obsid: int):
+def download_obsid(obsid: int) -> list[bool]:
     """
     Uses the `download_chandra_obsids` function from CIAO to download the passed
     obsid. This function downloads to the current working directory. 
@@ -32,14 +32,14 @@ def download_obsid(obsid: int):
     
     Returns
     -------
-    str
+    list[bool]
         The result output of the CIAO command `download_chandra_obsids`.
     """
     logger.info(f"Downloading data for observation id {obsid}")
-    return download_chandra_obsids([obsid])
+    return download_chandra_obsids([obsid])                      # type : ignore
 
 
-def download_observations(obsids: list, num_streams: int=1):
+def download_observations(obsids: list[int], num_streams: int=1):
     """
     Function description goes here.
     
@@ -117,7 +117,7 @@ def get_ciao_version(full: bool=False) -> str:
     return version
 
 
-def run_command(command: CIAOToolParFile, **kwargs: dict) -> str:
+def run_command(command: CIAOToolParFile, **kwargs: dict[str, str]) -> str:
     """
     This is the main function that should be called to run any CIAO command that
     is handled by the imported runtool. This is essentially every command EXCEPT
@@ -152,11 +152,12 @@ def run_command(command: CIAOToolParFile, **kwargs: dict) -> str:
     str
         A string containing the results CIAO passes back to the console. 
     """
-    logging.info(f"Running {command._toolname} with {kwargs}")
+    command_name = command.toolname
+    logging.info(f"Running {command_name} with {kwargs}")
     try:
         command.punlearn()
         result = command(**kwargs)
         return str(result)
     except:
-        logging.error(f"{command._toolname} failed with {kwargs} as arguments.")
+        logging.error(f"{command_name} failed with {kwargs} as arguments.")
         raise

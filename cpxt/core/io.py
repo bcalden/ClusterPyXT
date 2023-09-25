@@ -21,6 +21,29 @@ import re
 
 logger = logging.getLogger(__name__)
 
+class Colors:
+    BLACK = "\u001b[30m"
+    RED = "\u001b[31m"
+    GREEN = "\u001b[32m"
+    YELLOW = "\u001b[33m"
+    BLUE = "\u001b[34m"
+    MAGENTA = "\u001b[35m"
+    CYAN = "\u001b[36m"
+    WHITE = "\u001b[37m"
+    RESET = "\033[0;0m"
+    BOLD = "\033[;1m"
+
+def color_string(string, color):
+    return f"{color}{string}{Colors.RESET}"
+
+def print_red(string):
+    print(red_text(string))
+
+def red_text(string):
+    return color_string(string, Colors.RED)
+
+def green_text(string):
+    return color_string(string, Colors.GREEN)
 
 def get_filenames_matching(pattern:str) -> list:
     """
@@ -69,6 +92,28 @@ def get_filename_matching(pattern:str) -> Path:
         return get_filenames_matching(pattern)[0]
     except:
         logger.error(f"No file matching {pattern} was found.")
+        raise    # To be implemented further as exceptions arise.
+
+def get_temp_filename(filename: str | Path) -> Path:
+    """
+    This function takes a filename and returns a `Path` object pointing to a 
+    temporary file in the same directory as the provided filename. 
+    
+    Parameters
+    ----------
+    filename : str
+        The filename we are trying to get a temporary file for.
+    
+    Returns
+    -------
+    Path
+        A `pathlib.Path` object pointing to a temporary file in the same 
+        directory as the provided filename.
+    """
+    try:
+        return Path(filename).with_suffix('.tmp')
+    except:
+        logger.error(f"Unable to get temporary filename for {filename}.")
         raise    # To be implemented further as exceptions arise.
 
 
@@ -301,3 +346,22 @@ def load_message(stage: Stage, message_type: MessageType, **kwargs) \
     
     # Format the template string with the actual values provided in kwargs
     return data['stages'][stage_key][message_type.value].format(**kwargs)
+
+
+def file_exists(filename: str | Path) -> bool:
+    """
+    Checks if the given file exists. Returns True if it does, False if it does
+    not. 
+    
+    Parameters
+    ----------
+    filename : str | Path
+        The filename we are checking for existance. 
+    
+    Returns
+    -------
+    bool
+        True if the file exists, False if it does not.
+    """
+    return Path(filename).exists()
+

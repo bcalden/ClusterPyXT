@@ -231,7 +231,7 @@ class Observation:
         return f"{str(self.reprocessed_evt2_file)}[ccd_id=0:3]"
 
     @property
-    def acis_ccd_fits_files(self) -> list:
+    def acis_ccd_fits_files(self) -> list[Path]:
         """
         This function returns a list of this observations reprocessed level 2
         event files per CCD. First we check which type of observation it is, 
@@ -260,6 +260,152 @@ class Observation:
         return io.get_filenames_matching(
             f"{self.analysis_dir}/acis_ccd[{ccds}].fits"
         )
+
+    @property
+    def high_energy_data_file(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the high energy data
+        file for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the high energy data file for
+            this observation.
+        """
+        return Path(f"{self.analysis_dir}/acisI_hiE.fits")
+    
+    @property
+    def binned_high_energy_data_file(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the binned high energy 
+        data file for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the binned high energy data file 
+            for this observation.
+        """
+        return Path(f"{self.analysis_dir}/img_acisI_hiE.fits")
+    
+    @property
+    def binned_full_energy_nosrc_data_file(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the binned full energy 
+        data file for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the binned full energy data file 
+            for this observation.
+        """
+        return Path(f"{self.analysis_dir}/img_acisI_nosrc_fullE.fits")
+        
+    @property
+    def acis_nosrc_filename(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the acis observation 
+        with point sources removed. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the ACIS image with point 
+            sources removed.
+        """
+        return Path(f"{self.analysis_dir}/acis_nosrc_{self.id}.fits")
+    
+    @property
+    def background_nosrc_filename(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the high energy data
+        file for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the high energy data file for
+            this observation.
+        """
+        return Path(f"{self.analysis_dir}/background_nosrc_{self.id}.fits")
+
+    @property
+    def high_energy_light_curve_file(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the high energy light
+        curve for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the high energy light curve for
+            this observation.
+        """
+        return Path(f"{self.analysis_dir}/acisI_lcurve_hiE.lc")
+    
+    @property
+    def good_time_interval_light_curve_file(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the good time interval
+        light curve for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the good time interval light 
+            curve for this observation.
+        """
+        return Path(f"{self.analysis_dir}/acisI_gti_hiE.gti")
+
+    @property
+    def acis_nosrc_high_energy_filename(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the acis observation 
+        with point sources removed filtered to high energies. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the ACIS image with point 
+            sources removed filtered to high energies.
+        """
+        return Path(f"{self.analysis_dir}/acisI_nosrc_hiEfilter.fits")
+
+
 
 ################################################################################
 ################################################################################

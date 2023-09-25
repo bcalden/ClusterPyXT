@@ -234,8 +234,10 @@ class ClusterWindow(qt.QMainWindow, ClusterUI):
 
 
     def run_stage_2(self):
-        stage_two.run_on(cluster=self.cluster)
-        self.update_stage(Stage.two)
+        success = stage_two.run_on(cluster=self.cluster)
+        if success:
+            self.update_stage(Stage.two)
+        
     
     def run_stage_3(self):
         pass
