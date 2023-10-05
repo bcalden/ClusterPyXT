@@ -9,7 +9,7 @@
         "completion": "Stage 2 is complete. The point sources removed and a new surface brightness map was saved to {xray_sb_nosrc}. High energy events filtered as well."
       },
       "stage_3": {
-        "preparation": "Next is stage 3. This stage extracts the RMF and ARF files. Before continuing the pipeline on {cluster_name}, you need to create a region file for each observation. Each observation will need its own region file named acisI_region_0.reg and saved in the respective analysis directory (e.g. {region_file}).\nTo create this file, open the respective acisI_clean.fits file (e.g. {acisI_clean}) and draw a small circle region containing some of each of the ACIS-I CCD's. This region does not need to contain ALL of the chips, just a piece of each. It can be ~20 pixels (bigger circle=longer runtime).\nAfter the region files for each observation are created, continue running ClusterPyXT on {cluster_name}.",
+        "preparation": "Next is stage 3. This stage extracts the RMF and ARF files. Before continuing the pipeline on {cluster_name}, you need to create a region file for each observation. Each observation will need its own region file named acisI_region_0.reg and saved in the respective analysis directory (e.g. {region_file}).\nTo create this file, open the respective acis(I/S)_clean.fits file (e.g. {clean}) and draw a small circle region containing some of each of the ACIS-I CCD's. This region does not need to contain ALL of the chips, just a piece of each. It can be ~20 pixels (bigger circle=longer runtime).\nAfter the region files for each observation are created, continue running ClusterPyXT on {cluster_name}.",
         "completion": "Stage 3 is complete."
       },
       "stage_4": {

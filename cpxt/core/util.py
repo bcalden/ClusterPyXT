@@ -19,7 +19,8 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def run_application(application:str , arguments:list(str)) -> None:
+def run_application(application:str , arguments:list[str], shell:bool=False) \
+                                                                        -> None:
     """
     This function runs the application provided with the arguments provided.
 
@@ -35,14 +36,10 @@ def run_application(application:str , arguments:list(str)) -> None:
     None
     """
       
-    # Check to see if the application exists
-    if not Path(application).exists():
-        # The application does not exist
-        logger.critical(f"Application {application} does not exist.")
-        sys.exit(-1)
+    if application == "":
+        logger.info(f"Running {arguments}")
+        command = arguments
     else:
-        # The application exists
         logger.info(f"Running {application} with arguments {arguments}")
-
         command = [application] + arguments
-        subprocess.run(command)
+    subprocess.run(command, shell=shell)

@@ -116,8 +116,10 @@ def get_temp_filename(filename: str | Path) -> Path:
         logger.error(f"Unable to get temporary filename for {filename}.")
         raise    # To be implemented further as exceptions arise.
 
+def file_size(filename: str | Path) -> int:
+    return os.path.getsize(filename)
 
-def write_contents_to_file(contents, filename: str, binary: bool=False) -> None:
+def write_contents_to_file(contents, filename: str | Path, binary: bool=False) -> None:
     """
     This function writes `contents` to `filename`. The binary flag encodes 
     whether or not we are writing a binary data file or a text file. We use a

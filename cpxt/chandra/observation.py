@@ -228,7 +228,61 @@ class Observation:
         file in the reprocessing directory that starts with 'acis' and ends with 
         'evt2.fits'. This would need to change for an ACIS-S observation
         """
-        return f"{str(self.reprocessed_evt2_file)}[ccd_id=0:3]"
+        if self.acis_type == ACIS.I:
+            return f"{str(self.reprocessed_evt2_file)}[ccd_id=0:3]"
+        elif self.acis_type == ACIS.S:
+            return f"{str(self.reprocessed_evt2_file)}[ccd_id=4:9]"
+        else:
+            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
+            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        
+    @property
+    def merge_list(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the list of 
+        the acis_ccd#.fits files for this observation to be merged into 1 image.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the merge list file for this 
+            observation.
+        """
+        if self.acis_type == ACIS.I:
+            return Path(f"{self.analysis_dir}/acisI.lis")
+        elif self.acis_type == ACIS.S:
+            return Path(f"{self.analysis_dir}/acisS.lis")
+        else:
+            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
+            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        
+    @property
+    def merge_back_list(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the list of 
+        the back_ccd#.fits files for this observation to be merged into 1 image.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the merge list file for this 
+            observation.
+        """
+        if self.acis_type == ACIS.I:
+            return Path(f"{self.analysis_dir}/backI.lis")
+        elif self.acis_type == ACIS.S:
+            return Path(f"{self.analysis_dir}/backS.lis")
+        else:
+            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
+            raise ValueError(f"Unable to determine ACIS type for {self.id}")
 
     @property
     def acis_ccd_fits_files(self) -> list[Path]:
@@ -261,6 +315,104 @@ class Observation:
             f"{self.analysis_dir}/acis_ccd[{ccds}].fits"
         )
 
+    @property
+    def background_ccd_fits_files(self) -> list[Path]:
+        """
+        This function returns a list of this background files per CCD. First we 
+        check which type of observation it is, then we get a list of files 
+        matching the CCDs we expect (ACIS-I or S).
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        list
+            A list of `Path` objects pointing to each of the `acis_ccd#.fits` 
+            files. 
+        """
+        if self.acis_type == ACIS.I:
+            ccds = "0-3"
+            # The ACIS-I chip uses CCDs 0,1,2, and 3. We only want those.
+        elif self.acis_type == ACIS.S:
+            ccds = "4-9"
+            # Similarly, the ACIS-S chip uses CCDs 4,5,6,7,8,9. 
+        else:
+            # No CCDs found. This is an error so let us handle it as such.
+            logger.error(f"Unable to determine CCDs used for {self.id}")
+            raise ValueError(f"Unable to determine CCDs used for {self.id}")
+        return io.get_filenames_matching(
+            f"{self.analysis_dir}/back_ccd[{ccds}].fits"
+        )
+
+    @property
+    def data_filename(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the data file for 
+        this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the data file for this 
+            observation.
+        """
+        if self.acis_type == ACIS.I:
+            return Path(f"{self.analysis_dir}/acisI.fits")
+        elif self.acis_type == ACIS.S:
+            return Path(f"{self.analysis_dir}/acisS.fits")
+        else:
+            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
+            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        
+
+    @property
+    def clean_data_filename(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the cleaned data file 
+        for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the cleaned data file for this 
+            observation.
+        """
+        if self.acis_type == ACIS.I:
+            return Path(f"{self.analysis_dir}/acisI_clean.fits")
+        elif self.acis_type == ACIS.S:
+            return Path(f"{self.analysis_dir}/acisS_clean.fits")
+        else:
+            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
+            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        
+    @property
+    def background_filename(self) -> Path:
+        """
+        This function returns a `Path` object pointing to the background file 
+        for this observation. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the background file for this 
+            observation.
+        """
+        return Path(f"{self.analysis_dir}/merged_back.fits")
+    
     @property
     def high_energy_data_file(self) -> Path:
         """
@@ -403,8 +555,39 @@ class Observation:
             A `pathlib.Path` object pointing to the ACIS image with point 
             sources removed filtered to high energies.
         """
-        return Path(f"{self.analysis_dir}/acisI_nosrc_hiEfilter.fits")
-
+        if self.acis_type == ACIS.I:
+            return Path(f"{self.analysis_dir}/acisI_nosrc_hiE.fits")
+        elif self.acis_type == ACIS.S:
+            return Path(f"{self.analysis_dir}/acisS_nosrc_hiE.fits")
+        else:
+            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
+            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        
+    
+    @property
+    def region_file(self) -> Path:
+        """
+        The region file containing a single region covering each CCD used for
+        the observation so we can characterize the average gain.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the region file.
+        """
+        if self.acis_type == ACIS.I:
+            return Path(f"{self.analysis_dir}/acisI_region_0.reg")
+        elif self.acis_type == ACIS.S:
+            return Path(f"{self.analysis_dir}/acisS_region_0.reg")
+        else:
+            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
+            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        
+    
 
 
 ################################################################################
@@ -450,13 +633,16 @@ class Observation:
         """
         if not hasattr(self, '_detnam'):
             keyword_args = {
-                "infile": self.level_1_event_file,
+                "infile": str(self.level_1_event_file),
                 "keyword": "DETNAM",
                 "echo": True
             }
             try:
                 self._detnam = \
                     ciao.run_command(rt.dmkeypar, **keyword_args)   #type:ignore
+                split_det = self._detnam.split('\n')
+                if len(split_det) > 1:
+                    self._detnam = split_det[-1]
             except:
                 # To be implemented as as exceptions arise. Raise all for now.
                 raise

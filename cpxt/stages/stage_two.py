@@ -11,6 +11,7 @@ Description: This file contains the code to run stage two of `ClusterPyXT`.
 """
 
 # Internal imports
+from cpxt.stages.stage_three import print_stage_3_prep
 from cpxt.chandra.observation import Observation
 from cpxt.core.stages import Stage, MessageType
 from cpxt.chandra.cluster import Cluster
@@ -44,32 +45,40 @@ logger = logging.getLogger(__name__)
 ################################################################################
 ################################################################################
 
-def run_on(cluster:Cluster) -> None:
-    """Runs stage two of the pipeline on the provided cluster. First 
+def run_on(cluster:Cluster) -> bool:
+    """Runs stage two of the pipeline on the provided cluster. First we check to
+    make sure the required files, `exclude.reg` and `sources.reg` are present.
+    Next, we remove the point sources identified in the `sources.reg` file from
+    the cluster's observations. After that, we create a surface brightness map
+    of the cluster with the point sources removed. Then, we generate light 
+    curves for each observation. Next, we filter out high energy flares from the
+    light curves. Finally, we process the light curves to create the final light
+    curve files. 
 
     Parameters
     ----------
     cluster : ClusterObj
         The ClusterPyXT ClusterObject of the particular cluster 
-        you want to run stage one on.
+        you want to run stage two on.
 
     Returns
     -------
-    None
+    bool:
+        True if the stage ran successfully, False otherwise.
     """
     if has_required_files(cluster):
+        cluster.main_output_dir.mkdir(parents=True, exist_ok=True)
         remove_point_sources_for(cluster)
         make_nosrc_xray_sb_image(cluster)
         generate_light_curves(cluster)
         filter_high_energy_flares_for(cluster)
-        light_curves_with_exclusion(cluster) # rename function
-    # remove_sources_in_parallel(cluster,args)
-    # generate_light_curves(cluster, args)
-    # make_nosrc_xray_sb(cluster)
-    # lightcurves_with_exclusion(cluster, args)
+        process_light_curve(cluster)
+        print_stage_2_comp(cluster)
+        print_stage_3_prep(cluster)
+        return True
     else: 
         print_stage_2_prep(cluster)
-
+        return False
 
 def has_required_files(cluster:Cluster) -> bool:
     """This function checks to make sure that the cluster has the required files
@@ -143,10 +152,10 @@ def remove_sources_from_obs(observation):
     # and copying the background to observation.back
     operations = [
         (observation.data_filename, observation.acis_nosrc_filename),
-        (observation.back_filename, observation.background_nosrc_filename)
+        (observation.background_filename, observation.background_nosrc_filename)
     ]
 
-    sources_file = observation.sources_filename
+    sources_file = observation.cluster.sources_file
 
     for original_file, no_src_file in operations:
         infile = f"{original_file}[exclude sky=region({sources_file})]"
@@ -168,9 +177,10 @@ def remove_sources_from_obs(observation):
                           f"outfile: {no_src_file}. Error: {e}")
             raise
     
-    # Copy the background file to the observation.back file
-    logging.info(f"Copying background to {observation.back}")
-    io.copy(observation.background_nosrc_filename, observation.back)
+    # # Copy the background file to the observation.back file
+    # logging.info(f"Copying background to {observation.background_filename}")
+    # io.copy(observation.background_nosrc_filename, 
+    #         observation.background_filename)
 
 
 def make_nosrc_xray_sb_image(cluster:Cluster) -> bool:
@@ -358,16 +368,64 @@ def filter_high_energy_flares_from(observation:Observation) -> bool:
     return True
 
 
-def light_curves_with_exclusion(cluster:Cluster) -> bool:
+def process_light_curve(cluster:Cluster) -> bool:
     for observation in tqdm(cluster.observations, 
                             desc='Finishing light curves', 
                             unit='observation', 
                             total=len(cluster.observations)):
-        light_curve_with_exclusion_for(observation)
+        process_light_curve_for(observation)
     return True
 
-def light_curve_with_exclusion_for(observation:Observation) -> bool:
-    return False
+def process_light_curve_for(observation:Observation) -> bool:
+    analysis_directory = observation.analysis_dir
+    data_nosrc_hiEfilter = observation.acis_nosrc_high_energy_filename
+
+    exclude_file = observation.cluster.exclude_file
+    infile = f"{data_nosrc_hiEfilter}[exclude sky=region({exclude_file})]"
+    data_lcurve = f"{analysis_directory}/acis_lcurve.fits"
+    
+    dmcopy_args = {
+        'infile': infile,
+        'outfile': data_lcurve,
+        'clobber': True
+    }
+    ciao.run_command(rt.dmcopy, **dmcopy_args)                    # type: ignore
+
+    backbin = 259.28
+
+    dmkeypar_args = {
+        'infile': data_nosrc_hiEfilter,
+        'keyword': 'TSTART',
+        'echo': True
+    }
+    tstart = ciao.run_command(rt.dmkeypar, **dmkeypar_args)       # type: ignore
+    dmkeypar_args['keyword'] = 'TSTOP'
+    tstop = ciao.run_command(rt.dmkeypar, **dmkeypar_args)        # type: ignore
+
+    dmextract_args = {
+        'infile': f"{data_lcurve}[bin time={tstart}:{tstop}:{backbin}]",
+        'outfile': f"{analysis_directory}/acis_lcurve.lc",
+        'opt': 'ltc1',
+        'clobber': True
+    }
+    ciao.run_command(rt.dmextract, **dmextract_args)              # type: ignore
+
+    deflare_args = {
+        'infile': dmextract_args['outfile'],
+        'outfile': f"{analysis_directory}/acisI_gti.gti",
+        'method': 'clean',
+        'save': f"{analysis_directory}/acisI_lcurve"
+    }
+    ciao.run_command(rt.deflare, **deflare_args)                  # type: ignore
+
+    final_dmcopy_args = {
+        'infile': f"{data_nosrc_hiEfilter}[@{deflare_args['outfile']}]",
+        'outfile': observation.clean_data_filename,
+        'clobber': True
+    }
+    ciao.run_command(rt.dmcopy, **final_dmcopy_args)              # type: ignore
+
+    return True
 
 
 
@@ -396,5 +454,17 @@ def print_stage_2_prep(cluster: Cluster) -> None:
     message = io.load_message(Stage.two, 
                               MessageType.preparation, 
                               **message_args)
+    print(message)
+    logging.info(message)
+
+def print_stage_2_comp(cluster: Cluster) -> None:
+    message_args = {
+        "xray_sb_nosrc": cluster.xray_sb_nosrc_map_filename
+    }
+
+    message = io.load_message(Stage.two,
+                              MessageType.completion,
+                              **message_args)
+    
     print(message)
     logging.info(message)

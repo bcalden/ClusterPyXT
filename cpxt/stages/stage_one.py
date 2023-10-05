@@ -70,7 +70,9 @@ def run_on(cluster:Cluster) -> None:
     reprocess_observations_for(cluster)
     make_level_2_event_files_for(cluster)
     merge_foregrounds_for(cluster)
+    make_acis_images_for(cluster)
     reprocess_backgrounds_for(cluster)
+    merge_backgrounds_for(cluster)
     merge_observations_for(cluster)
     print_stage_1_comp(cluster)
     print_stage_2_prep(cluster)
@@ -512,6 +514,44 @@ def reprocess_obs_backgrounds_for(observation: Observation) -> None:
             ciao.run_command(rt.acis_process_events, **keyword_args)#type:ignore
 
 
+def merge_backgrounds_for(cluster: Cluster) -> None:
+    """
+    This function merges the background files for each observation into one
+    background file for the cluster. This is done using the CIAO command listed
+    below.
+
+    CIAO Commands
+    -------------
+    dmmerge - https://cxc.harvard.edu/ciao/ahelp/dmmerge.html
+        Merges the background files for each observation into one background
+        file for the cluster.
+
+    Parameters
+    ----------
+    cluster : Cluster
+        The cluster we are merging the individual CCD level 2 event files for.
+
+    Returns
+    -------
+    None
+    """
+    for observation in tqdm(cluster.observations,
+                            total=len(cluster.observations),
+                            desc="Merging background CCDs",
+                            leave=True):
+        back_files = [str(file) for file in 
+                      observation.background_ccd_fits_files]
+        io.write_contents_to_file("\n".join(back_files),
+                                  observation.merge_back_list)
+        
+        keyword_args = {
+            "infile": f"@{observation.merge_back_list}[subspace -expno]",
+            "outfile": observation.background_filename,
+            "clobber": True
+        }
+        ciao.run_command(rt.dmmerge, **keyword_args)                #type:ignore
+
+
 
 def find_ccd_background_for(ccd: CCD) -> str:
     """
@@ -576,6 +616,9 @@ def merge_observations_for(cluster: Cluster) -> None:
     merge_obs
         Called when the cluster is made up of multiple observations.
 
+    dmmerge
+        Called to make the individual obersavtions images with the same field
+
     Parameters
     ----------
     cluster : Cluster
@@ -613,10 +656,43 @@ def merge_observations_for(cluster: Cluster) -> None:
         kwargs['nproc'] = CPXTConfig().num_cores
     
     ciao.run_command(command, **kwargs)
+
+
     logger.info(f"Done merging observations for {cluster.name}")
     print("Done merging observations.")
 
+def make_acis_images_for(cluster: Cluster) -> None:
+    """
+    This function takes the individual ccd images and merges them into a single
+    image for each observation. 
 
+    CIAO Calls
+    ----------
+    dmmerge
+        Called to make the individual obersavtions images with the same field
+    
+    Parameters
+    ----------
+    cluster : Cluster
+        The current `Cluster` object we are working on.
+    
+    Returns
+    -------
+        None
+    """
+    for observation in cluster.observations:
+        acis_files = [str(file) for file in observation.acis_ccd_fits_files]
+        
+        io.write_contents_to_file("\n".join(acis_files), observation.merge_list)
+
+        keyword_args = {
+            "infile": f"@{observation.merge_list}[subspace -expno]",
+            "outfile": observation.data_filename,
+            "clobber": True
+        }
+        ciao.run_command(rt.dmmerge, **keyword_args)                #type:ignore
+        
+   
 def print_stage_1_prep() -> None:
     """This function prints the preparation message for stage 1.
 

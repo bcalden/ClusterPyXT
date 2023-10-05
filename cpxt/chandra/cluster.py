@@ -254,6 +254,7 @@ class Cluster:
         """
         # This used to be acisI.fits in older versions of the pipeline.
         return Path(f"{self.data_directory}/merged_acis_events.fits")
+    
 
     @property
     def sources_file(self) -> Path:
