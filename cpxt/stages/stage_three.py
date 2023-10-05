@@ -54,9 +54,9 @@ def run_on(cluster:Cluster) -> None:
     None
     """
     if has_required_files(cluster):
-        extract_response_files_for(cluster)
-        generate_rmf_files_for(cluster)
-        generate_arf_files_for(cluster)
+        extract_response_files_in_parallel_for(cluster)
+        generate_rmf_files_in_parallel_for(cluster)
+        generate_arf_files_in_parallel_for(cluster)
     else: 
         print_stage_3_prep(cluster)
         make_region_files(cluster)
@@ -84,7 +84,7 @@ def has_required_files(cluster: Cluster) -> bool:
 
 def make_region_files(cluster: Cluster) -> None:
     for observation in tqdm(cluster.observations, desc="Creating region files"):
-        region_file = observation.region_file
+        region_file = observation.gain_region_file
         if (not io.file_exists(region_file)) or \
              (io.file_size(region_file) == 0):
             # print("Region file {} does not exist.".format(region_file))
@@ -100,53 +100,209 @@ def make_region_files(cluster: Cluster) -> None:
             run_application("", ds9_arguments, shell=True)
         print('Creating global response file.')
 
-def extract_response_files_for(cluster:Cluster) -> bool:
-    """Function description
+def extract_response_files_in_parallel_for(cluster: Cluster) -> None:
+    """Extract response files in parallel for the given cluster.
     
     Parameters
     ----------
-    cluster : cl.ClusterObj
+    cluster : Cluster
         The current cluster you are working on
+    
+    Returns
+    -------
+    None
+    """
+    observations = cluster.observations
+    with mp.Pool(processes=len(observations)) as pool:
+        results = list(tqdm(pool.imap(extract_response_files_for, observations),
+                            total=len(observations),
+                            unit="observation",
+                            desc="Extracting response files"
+                            ))
+    
+    if not all(results):
+        logger.error(f"Failed to extract response files for {cluster}.")
+        raise RuntimeError(f"Failed to extract response files for {cluster}.")
 
+def extract_response_files_for(observation: Observation) -> bool:
+    """Extract response files for the given cluster.
+    
+    Parameters
+    ----------
+    cluster : Cluster
+        The current cluster you are working on
     
     Returns
     -------
     bool
         True or false depending on successful completion
     """
-    return False
+    try:
+        obs_analysis_dir = observation.analysis_dir
+        global_response_dir = observation.global_response_dir
+        global_response_dir.mkdir(parents=True, exist_ok=True)
+        
+        bad_pixel_file = observation.reprocessed_bad_pixel_filename
+        clean = observation.clean_data_filename
+        
+        ardlib_args = {
+            'badpixfile': bad_pixel_file
+        }
+        ciao.run_command(rt.ardlib, **ardlib_args)                # type: ignore
+        
+        mask_file = observation.mask_file
+        make_pcad_lis(observation)
+        
+        specextract_args = {
+            'infile': f"{clean}[sky=region({observation.gain_region_file})]",
+            'outroot': f"{global_response_dir}/acisI_region_0",
+            'weight': True,
+            'correctpsf': False,
+            'asp': f"{obs_analysis_dir}/pcad_asol1.lis",
+            'combine': False,
+            'mskfile': mask_file,
+            'bkgfile': "",
+            'bkgresp': False,
+            'badpixfile': bad_pixel_file,
+            'grouptype': "NUM_CTS",
+            'binspec': 1,
+            'clobber': True
+        }
+        ciao.run_command(rt.specextract, **specextract_args)      # type: ignore
+        
+        return True
+    except:
+        return False
 
-def generate_rmf_files_for(cluster:Cluster) -> bool:
-    """Function description
+def generate_rmf_files_in_parallel_for(cluster: Cluster):
+    """Generate RMF files in parallel for the given cluster.
     
     Parameters
     ----------
-    cluster : cl.ClusterObj
+    cluster : Cluster
         The current cluster you are working on
     
+    Returns
+    -------
+    None
+    """
+    observations = cluster.observations
+    with mp.Pool(processes=len(observations)) as pool:
+        results = list(tqdm(pool.imap(generate_rmf_files_for, observations),
+                            total=len(observations),
+                            unit="observation",
+                            desc="Generating RMF files"
+                            ))
+    
+    if not all(results):
+        logger.error(f"Failed to generate RMF files in parallel for {cluster}.")
+    for observation in tqdm(cluster.observations, desc="Generating RMF files"):
+        if not generate_rmf_files_for(observation):
+            logger.error(f"Failed to generate RMF files for {cluster}.")
+            raise RuntimeError(f"Failed to generate RMF files for {cluster}.")
+
+def generate_rmf_files_for(observation: Observation) -> bool:
+    """Generate RMF files for the given cluster.
+    
+    Parameters
+    ----------
+    cluster : Cluster
+        The current cluster you are working on
     
     Returns
     -------
     bool
         True or false depending on successful completion
     """
-    return False
-
-def generate_arf_files_for(cluster:Cluster) -> bool:
-    """Function description
+    try:
+        global_response_dir = observation.global_response_dir
+        back = observation.background_filename
+        
+        dmextract_args = {
+            'infile': f"{back}[sky=region(" \
+                      f"{observation.gain_region_file})][bin pi]",
+            'outfile': observation.background_gain_region_pi_filename,
+            'clobber': True
+        }
+        ciao.run_command(rt.dmextract, **dmextract_args)          # type: ignore
+        
+        return True
+    except:
+        return False
+    
+def generate_arf_files_in_parallel_for(cluster: Cluster):
+    """Generate ARF files in parallel for the given cluster.
     
     Parameters
     ----------
-    cluster : cl.ClusterObj
+    cluster : Cluster
         The current cluster you are working on
+    
+    Returns
+    -------
+    None
+    """
+    observations = cluster.observations
+    with mp.Pool(processes=len(observations)) as pool:
+        results = list(tqdm(pool.imap(generate_arf_files_for, observations),
+                            total=len(observations),
+                            unit="observation",
+                            desc="Generating ARF files"
+                            ))
+    
+    if not all(results):
+        logger.error(f"Failed to generate ARF files in parallel for {cluster}.")
+    for observation in tqdm(cluster.observations, desc="Generating ARF files"):
+        if not generate_arf_files_for(observation):
+            logger.error(f"Failed to generate ARF files for {cluster}.")
+            raise RuntimeError(f"Failed to generate ARF files for {cluster}.")
 
+def generate_arf_files_for(observation: Observation) -> bool:
+    """Generate ARF files for the given cluster.
+    
+    Parameters
+    ----------
+    observation : Observation
+        The current observation you are working on
     
     Returns
     -------
     bool
         True or false depending on successful completion
     """
-    return False
+    try:
+        global_response_dir = observation.global_response_dir
+        
+        dmhedit_args = {
+            'infile': observation.gain_region_pi_filename,
+            'filelist': "",
+            'operation': "add",
+            'key': "BACKFILE",
+            'value': observation.background_gain_region_pi_filename
+        }
+        ciao.run_command(rt.dmhedit, **dmhedit_args)              # type: ignore
+        
+        io.copy(observation.gain_region_arf_file,
+                observation.aux_response_filename)
+
+        io.copy(observation.gain_region_rmf_file,
+                observation.redist_matrix_filename)
+                
+        return True
+    except:
+        return False
+
+
+def make_pcad_lis(observation: Observation):
+    search_str = "{}/*asol1.fits".format(observation.reprocessed_dir)
+    pcad_files = [str(s) for s in io.get_filenames_matching(search_str)]
+    pcad_list_string = "\n".join(pcad_files)
+    pcad_filename = "{}/pcad_asol1.lis".format(observation.analysis_dir)
+
+    io.write_contents_to_file(pcad_list_string, pcad_filename, binary=False)
+
+    return pcad_filename
+
 
 def print_stage_3_prep(cluster: Cluster) -> None:
     """This function prints the instructions for preparing the cluster for stage
@@ -164,7 +320,7 @@ def print_stage_3_prep(cluster: Cluster) -> None:
     """
     message_args = {
         "cluster_name": cluster.name,
-        "region_file": cluster.observations[0].region_file,
+        "region_file": cluster.observations[0].gain_region_file,
         "clean": cluster.observations[0].clean_data_filename
     }
 

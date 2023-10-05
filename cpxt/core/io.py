@@ -186,7 +186,7 @@ def read_contents_of_file(filename: str) -> str:
         raise # To be implemented as more exceptions arise.
 
 
-def copy(source: str, destination: str, replace: bool=True):
+def copy(source: str | Path, destination: str | Path, replace: bool=True):
     if not replace and exists(destination):
         logger.error(f"{destination} exists and replace set to False.")
         return

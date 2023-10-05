@@ -38,6 +38,7 @@ from cpxt.core import io
 
 # External imports
 from ciao_contrib import runtool as rt
+from typing import Optional
 from pathlib import Path
 from enum import IntEnum
 import numpy as np
@@ -185,6 +186,24 @@ class Observation:
             A `pathlib.Path` object pointing to the observation's 
         """
         return Path(f"{self.directory}/repro")
+    
+    @property
+    def global_response_dir(self) -> Path:
+        """
+        Function description goes here.
+        
+        Parameters
+        ----------
+        <var> : <type>
+            <description>
+            
+        Returns
+        -------
+        Path
+            A `pathlib.Path` object pointing to the directory containing the 
+            global response files.
+        """
+        return Path(f"{self.analysis_dir}/globalresponse")
                                                                        
 ################################################################################
 ################################################################################
@@ -220,6 +239,8 @@ class Observation:
             f"{self.reprocessed_dir}/acis*repro_evt2.fits"
         )
 
+
+
     @property
     def reprocessed_evt2_file_ccd_filter(self) -> str:
         """
@@ -252,13 +273,7 @@ class Observation:
             A `pathlib.Path` object pointing to the merge list file for this 
             observation.
         """
-        if self.acis_type == ACIS.I:
-            return Path(f"{self.analysis_dir}/acisI.lis")
-        elif self.acis_type == ACIS.S:
-            return Path(f"{self.analysis_dir}/acisS.lis")
-        else:
-            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
-            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        return self._get_acis_filename(self.analysis_dir, ".lis")
         
     @property
     def merge_back_list(self) -> Path:
@@ -362,14 +377,7 @@ class Observation:
             A `pathlib.Path` object pointing to the data file for this 
             observation.
         """
-        if self.acis_type == ACIS.I:
-            return Path(f"{self.analysis_dir}/acisI.fits")
-        elif self.acis_type == ACIS.S:
-            return Path(f"{self.analysis_dir}/acisS.fits")
-        else:
-            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
-            raise ValueError(f"Unable to determine ACIS type for {self.id}")
-        
+        return self._get_acis_filename(self.analysis_dir, ".fits")
 
     @property
     def clean_data_filename(self) -> Path:
@@ -387,13 +395,7 @@ class Observation:
             A `pathlib.Path` object pointing to the cleaned data file for this 
             observation.
         """
-        if self.acis_type == ACIS.I:
-            return Path(f"{self.analysis_dir}/acisI_clean.fits")
-        elif self.acis_type == ACIS.S:
-            return Path(f"{self.analysis_dir}/acisS_clean.fits")
-        else:
-            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
-            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        return self._get_acis_filename(self.analysis_dir, "_clean.fits")
         
     @property
     def background_filename(self) -> Path:
@@ -429,7 +431,8 @@ class Observation:
             A `pathlib.Path` object pointing to the high energy data file for
             this observation.
         """
-        return Path(f"{self.analysis_dir}/acisI_hiE.fits")
+        return self._get_acis_filename(self.analysis_dir, "_hiE.fits")
+        
     
     @property
     def binned_high_energy_data_file(self) -> Path:
@@ -447,7 +450,9 @@ class Observation:
             A `pathlib.Path` object pointing to the binned high energy data file 
             for this observation.
         """
-        return Path(f"{self.analysis_dir}/img_acisI_hiE.fits")
+        return self._get_acis_filename(self.analysis_dir, 
+                                       "_hiE.fits", 
+                                       prefix="img_")
     
     @property
     def binned_full_energy_nosrc_data_file(self) -> Path:
@@ -465,7 +470,9 @@ class Observation:
             A `pathlib.Path` object pointing to the binned full energy data file 
             for this observation.
         """
-        return Path(f"{self.analysis_dir}/img_acisI_nosrc_fullE.fits")
+        return self._get_acis_filename(self.analysis_dir, 
+                                       "_nosrc_fullE.fits", 
+                                       prefix="img_")
         
     @property
     def acis_nosrc_filename(self) -> Path:
@@ -519,7 +526,8 @@ class Observation:
             A `pathlib.Path` object pointing to the high energy light curve for
             this observation.
         """
-        return Path(f"{self.analysis_dir}/acisI_lcurve_hiE.lc")
+        return self._get_acis_filename(self.analysis_dir, "_lcurve_hiE.lc")
+
     
     @property
     def good_time_interval_light_curve_file(self) -> Path:
@@ -537,7 +545,8 @@ class Observation:
             A `pathlib.Path` object pointing to the good time interval light 
             curve for this observation.
         """
-        return Path(f"{self.analysis_dir}/acisI_gti_hiE.gti")
+        return self._get_acis_filename(self.analysis_dir, "_gti_hiE.gti")
+    
 
     @property
     def acis_nosrc_high_energy_filename(self) -> Path:
@@ -555,17 +564,11 @@ class Observation:
             A `pathlib.Path` object pointing to the ACIS image with point 
             sources removed filtered to high energies.
         """
-        if self.acis_type == ACIS.I:
-            return Path(f"{self.analysis_dir}/acisI_nosrc_hiE.fits")
-        elif self.acis_type == ACIS.S:
-            return Path(f"{self.analysis_dir}/acisS_nosrc_hiE.fits")
-        else:
-            logger.error(f"Unable to determine ACIS I or S used for {self.id}")
-            raise ValueError(f"Unable to determine ACIS type for {self.id}")
+        return self._get_acis_filename(self.analysis_dir, "_nosrc_hiE.fits")
         
     
     @property
-    def region_file(self) -> Path:
+    def gain_region_file(self) -> Path:
         """
         The region file containing a single region covering each CCD used for
         the observation so we can characterize the average gain.
@@ -579,16 +582,62 @@ class Observation:
         Path
             A `pathlib.Path` object pointing to the region file.
         """
+        return self._get_acis_filename(self.analysis_dir, "_region_0.reg")
+    
+    @property
+    def reprocessed_bad_pixel_filename(self) -> Path:
+        bpix1_filename = io.get_filenames_matching(
+            f"{self.reprocessed_dir}/*repro_bpix1.fits")
+        if isinstance(bpix1_filename, list):
+            if len(bpix1_filename) >= 1:
+                bpix1_filename = bpix1_filename[-1]
+                return bpix1_filename
+        logger.error(f"Unable to find bad pixel file for {self.id}")
+        raise FileNotFoundError(f"Unable to find bad pixel file for {self.id}")
+
+    @property
+    def mask_file(self) -> Path:
+        return io.get_filename_matching(f"{self.reprocessed_dir}/*msk1.fits")
+    
+    @property
+    def background_gain_region_pi_filename(self) -> Path:
+        return self._get_acis_filename(self.global_response_dir,
+                                        "_back_region_0.pi")
+    @property
+    def gain_region_pi_filename(self) -> Path:
+        return self._get_acis_filename(self.analysis_dir, "_region_0.pi")
+
+    @property
+    def gain_region_arf_file(self) -> Path:
+        return self._get_acis_filename(self.global_response_dir, 
+                                       "_region_0.arf")
+    
+    @property
+    def gain_region_rmf_file(self) -> Path:
+        return self._get_acis_filename(self.global_response_dir,
+                                       "_region_0.rmf")
+    
+    @property
+    def aux_response_filename(self) -> Path:
+        return self._get_acis_filename(self.global_response_dir, ".arf")
+        
+    @property
+    def redist_matrix_filename(self) -> Path:
+        return self._get_acis_filename(self.global_response_dir, ".rmf")
+    
+
+    def _get_acis_filename(self, directory: str | Path, 
+                           suffix: str, 
+                           prefix:Optional[str]=None) -> Path:
+        """Helper function to get ACIS filename based on acis_type."""
+            
         if self.acis_type == ACIS.I:
-            return Path(f"{self.analysis_dir}/acisI_region_0.reg")
+            return Path(f"{directory}/acisI{suffix}")
         elif self.acis_type == ACIS.S:
-            return Path(f"{self.analysis_dir}/acisS_region_0.reg")
+            return Path(f"{directory}/acisS{suffix}")
         else:
             logger.error(f"Unable to determine ACIS I or S used for {self.id}")
             raise ValueError(f"Unable to determine ACIS type for {self.id}")
-        
-    
-
 
 ################################################################################
 ################################################################################
