@@ -80,7 +80,10 @@ def has_required_files(cluster: Cluster) -> bool:
     bool
         True if the required files are present, False if not.
     """
-    return False
+    for observation in cluster.observations:
+        if not io.file_exists(observation.gain_region_file):
+            return False
+    return True
 
 def make_region_files(cluster: Cluster) -> None:
     for observation in tqdm(cluster.observations, desc="Creating region files"):
@@ -98,7 +101,6 @@ def make_region_files(cluster: Cluster) -> None:
                              f"{observation.clean_data_filename}"]
             
             run_application("", ds9_arguments, shell=True)
-        print('Creating global response file.')
 
 def extract_response_files_in_parallel_for(cluster: Cluster) -> None:
     """Extract response files in parallel for the given cluster.
@@ -112,6 +114,7 @@ def extract_response_files_in_parallel_for(cluster: Cluster) -> None:
     -------
     None
     """
+    logger.info(f"Extracting response files for {cluster}.")
     observations = cluster.observations
     with mp.Pool(processes=len(observations)) as pool:
         results = list(tqdm(pool.imap(extract_response_files_for, observations),
@@ -137,25 +140,26 @@ def extract_response_files_for(observation: Observation) -> bool:
     bool
         True or false depending on successful completion
     """
+    logger.info(f"Extracting response files for {observation}.")
     try:
         obs_analysis_dir = observation.analysis_dir
         global_response_dir = observation.global_response_dir
         global_response_dir.mkdir(parents=True, exist_ok=True)
         
-        bad_pixel_file = observation.reprocessed_bad_pixel_filename
+        bad_pixel_file = str(observation.reprocessed_bad_pixel_filename)
         clean = observation.clean_data_filename
         
         ardlib_args = {
             'badpixfile': bad_pixel_file
         }
-        ciao.run_command(rt.ardlib, **ardlib_args)                # type: ignore
+        ciao.run_command(rt.acis_set_ardlib, **ardlib_args)                # type: ignore
         
         mask_file = observation.mask_file
         make_pcad_lis(observation)
         
         specextract_args = {
             'infile': f"{clean}[sky=region({observation.gain_region_file})]",
-            'outroot': f"{global_response_dir}/acisI_region_0",
+            'outroot': f"{observation.gain_region_pi_filename}"[:-3],
             'weight': True,
             'correctpsf': False,
             'asp': f"{obs_analysis_dir}/pcad_asol1.lis",
@@ -172,6 +176,7 @@ def extract_response_files_for(observation: Observation) -> bool:
         
         return True
     except:
+        raise
         return False
 
 def generate_rmf_files_in_parallel_for(cluster: Cluster):
@@ -186,6 +191,7 @@ def generate_rmf_files_in_parallel_for(cluster: Cluster):
     -------
     None
     """
+    logger.info(f"Generating RMF files for {cluster}.")
     observations = cluster.observations
     with mp.Pool(processes=len(observations)) as pool:
         results = list(tqdm(pool.imap(generate_rmf_files_for, observations),
@@ -214,8 +220,10 @@ def generate_rmf_files_for(observation: Observation) -> bool:
     bool
         True or false depending on successful completion
     """
+    logger.info(f"Generating RMF files for {observation}.")
     try:
         global_response_dir = observation.global_response_dir
+        global_response_dir.mkdir(parents=True, exist_ok=True)
         back = observation.background_filename
         
         dmextract_args = {
@@ -242,6 +250,7 @@ def generate_arf_files_in_parallel_for(cluster: Cluster):
     -------
     None
     """
+    logger.info(f"Generating ARF files for {cluster}.")
     observations = cluster.observations
     with mp.Pool(processes=len(observations)) as pool:
         results = list(tqdm(pool.imap(generate_arf_files_for, observations),
@@ -270,6 +279,7 @@ def generate_arf_files_for(observation: Observation) -> bool:
     bool
         True or false depending on successful completion
     """
+    logger.info(f"Generating ARF files for {observation}.")
     try:
         global_response_dir = observation.global_response_dir
         

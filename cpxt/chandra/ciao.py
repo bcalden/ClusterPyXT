@@ -152,7 +152,7 @@ def run_command(command: CIAOToolParFile, **kwargs: dict[str, str]) -> str:
     str
         A string containing the results CIAO passes back to the console. 
     """
-    command_name = command.toolname
+    command_name = command.toolname()
     logging.info(f"Running {command_name} with {kwargs}")
     try:
         command.punlearn()

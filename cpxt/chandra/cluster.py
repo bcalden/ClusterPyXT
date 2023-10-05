@@ -389,7 +389,10 @@ class Cluster:
         cluster_dict['obsids'] = ','.join([f"{obs}" for obs in self.obsids])
         cluster_dict['last_step_completed'] = \
             f"{self.last_step_completed.value}"
-        cluster_config['cluster'] = cluster_dict
+        
+        cluster_config.add_section('cluster')
+        for key, value in cluster_dict.items():
+            cluster_config['cluster'][key] = value
 
         self.config_file.parent.mkdir(parents=True, exist_ok=True)
         try:
