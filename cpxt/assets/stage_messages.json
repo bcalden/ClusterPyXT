@@ -13,7 +13,7 @@
         "completion": "Stage 3 is complete."
       },
       "stage_4": {
-        "preparation": "Now you need to create a region file enclosing the region you would like to crop the final analysis to. To do so, open the surface brightness file {xray_sb_file} and create a box region containing all parts of the image you want included in the analysis.\nSave this file as: {master_crop}\nAfter this region file is created, continue running ClusterPyXT on {cluster_name}.\nNote: Due to processing complexities, during this stage you may encounter an error where two observations have slightly different dimensions (usually ~1) and the pipeline cannot combine them. This is due to the region splitting pixels and in some observations that pixel may be counted where in others it is not. If this happens, draw a new crop region, save it, and re-run.",
+        "preparation": "Now you need to create a region file enclosing the region you would like to crop the final analysis to. To do so, open the surface brightness file {xray_sb_file} and create a box region containing all parts of the image you want included in the analysis.\nSave this file as: {master_crop}\nAfter this region file is created, continue running ClusterPyXT on {cluster_name}.\nNote: Due to processing complexities, during this stage you may encounter an error where two observations have slightly different dimensions (usually ~1 pixel) and the pipeline cannot combine them. This is due to the region splitting pixels and in some observations that pixel may be counted where in others it is not. If this happens, draw a new crop region, save it, and re-run.",
         "completion": "Stage 4 is complete. The data are filtered and cropped."
       },
       "stage_5": {

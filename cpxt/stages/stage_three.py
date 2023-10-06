@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 ################################################################################
 
 
-def run_on(cluster:Cluster) -> None:
+def run_on(cluster:Cluster) -> bool:
     """Runs stage three of the pipeline on the provided cluster. First 
 
     Parameters
@@ -52,17 +52,21 @@ def run_on(cluster:Cluster) -> None:
 
     Returns
     -------
-    None
+    bool
     """
     if has_required_files(cluster):
-        extract_response_files_in_parallel_for(cluster)
-        generate_rmf_files_in_parallel_for(cluster)
-        generate_arf_files_in_parallel_for(cluster)
-        print_stage_3_comp(cluster)
-        print_stage_4_prep(cluster)
+        results = []
+        results.append(extract_response_files_in_parallel_for(cluster))
+        results.append(generate_rmf_files_in_parallel_for(cluster))
+        results.append(generate_arf_files_in_parallel_for(cluster))
+        if all(results):
+            print_stage_3_comp(cluster)
+            print_stage_4_prep(cluster)
+            return True
     else: 
         print_stage_3_prep(cluster)
         make_region_files(cluster)
+    return False
 
 
 def has_required_files(cluster: Cluster) -> bool:
@@ -105,7 +109,7 @@ def make_region_files(cluster: Cluster) -> None:
             
             run_application("", ds9_arguments, shell=True)
 
-def extract_response_files_in_parallel_for(cluster: Cluster) -> None:
+def extract_response_files_in_parallel_for(cluster: Cluster) -> bool:
     """Extract response files in parallel for the given cluster.
     
     Parameters
@@ -115,7 +119,8 @@ def extract_response_files_in_parallel_for(cluster: Cluster) -> None:
     
     Returns
     -------
-    None
+    bool:
+        True or false depending on successful completion
     """
     logger.info(f"Extracting response files for {cluster}.")
     observations = cluster.observations
@@ -129,6 +134,9 @@ def extract_response_files_in_parallel_for(cluster: Cluster) -> None:
     if not all(results):
         logger.error(f"Failed to extract response files for {cluster}.")
         raise RuntimeError(f"Failed to extract response files for {cluster}.")
+
+    return True
+
 
 def extract_response_files_for(observation: Observation) -> bool:
     """Extract response files for the given cluster.
@@ -179,7 +187,6 @@ def extract_response_files_for(observation: Observation) -> bool:
         
         return True
     except:
-        raise
         return False
 
 def generate_rmf_files_in_parallel_for(cluster: Cluster):
@@ -209,6 +216,7 @@ def generate_rmf_files_in_parallel_for(cluster: Cluster):
         if not generate_rmf_files_for(observation):
             logger.error(f"Failed to generate RMF files for {cluster}.")
             raise RuntimeError(f"Failed to generate RMF files for {cluster}.")
+    return True
 
 def generate_rmf_files_for(observation: Observation) -> bool:
     """Generate RMF files for the given cluster.
@@ -241,7 +249,7 @@ def generate_rmf_files_for(observation: Observation) -> bool:
     except:
         return False
     
-def generate_arf_files_in_parallel_for(cluster: Cluster):
+def generate_arf_files_in_parallel_for(cluster: Cluster) -> bool:
     """Generate ARF files in parallel for the given cluster.
     
     Parameters
@@ -268,6 +276,7 @@ def generate_arf_files_in_parallel_for(cluster: Cluster):
         if not generate_arf_files_for(observation):
             logger.error(f"Failed to generate ARF files for {cluster}.")
             raise RuntimeError(f"Failed to generate ARF files for {cluster}.")
+    return True
 
 def generate_arf_files_for(observation: Observation) -> bool:
     """Generate ARF files for the given cluster.
@@ -303,7 +312,6 @@ def generate_arf_files_for(observation: Observation) -> bool:
                 
         return True
     except:
-        raise
         return False
 
 
