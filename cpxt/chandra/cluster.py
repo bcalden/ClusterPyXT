@@ -146,6 +146,25 @@ class Cluster:
             directory.
         """
         return Path(f"{self.data_directory}/main_output/")
+    
+    @property
+    def combined_dir(self) -> Path:
+        """
+        This property returns a `pathlib.Path` object pointing to the clusters's
+        combined directory. This is where the combined observations are stored
+        for processing as well as the master crop region file.  
+
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            Returns a `pathlib.Path` object pointing to the clusters combined
+            directory.
+        """
+        return Path(f"{self.data_directory}/combined/")
 
 ################################################################################
 ################################################################################
@@ -331,6 +350,24 @@ class Cluster:
         """
         return Path(f"{self.main_output_dir}/" \
                     f"{self.name}_xray_surface_brightness_nosrc.fits")
+    
+    @property
+    def master_crop_file(self) -> Path:
+        """
+        The is property returns a `Path` object that points to the master crop
+        file for the cluster. This file is used to crop the images to the same
+        size and shape. 
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Path
+            Path object pointing to the master crop file for the cluster.
+        """
+        return Path(f"{self.data_directory}/master_crop-ciaowcs.reg")
 
 ################################################################################
 ################################################################################

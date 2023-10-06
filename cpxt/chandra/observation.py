@@ -605,7 +605,7 @@ class Observation:
                                         "_back_region_0.pi")
     @property
     def gain_region_pi_filename(self) -> Path:
-        return self._get_acis_filename(self.analysis_dir, "_region_0.pi")
+        return self._get_acis_filename(self.global_response_dir, "_region_0.pi")
 
     @property
     def gain_region_arf_file(self) -> Path:

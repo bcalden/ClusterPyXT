@@ -7,6 +7,7 @@ Description: This file contains the code to run stage three of `ClusterPyXT`.
 """
 
 # Internal imports
+from cpxt.stages.stage_four import print_stage_4_prep
 from cpxt.chandra.observation import Observation
 from cpxt.core.stages import Stage, MessageType
 from cpxt.chandra.cluster import Cluster
@@ -57,6 +58,8 @@ def run_on(cluster:Cluster) -> None:
         extract_response_files_in_parallel_for(cluster)
         generate_rmf_files_in_parallel_for(cluster)
         generate_arf_files_in_parallel_for(cluster)
+        print_stage_3_comp(cluster)
+        print_stage_4_prep(cluster)
     else: 
         print_stage_3_prep(cluster)
         make_region_files(cluster)
@@ -154,15 +157,15 @@ def extract_response_files_for(observation: Observation) -> bool:
         }
         ciao.run_command(rt.acis_set_ardlib, **ardlib_args)                # type: ignore
         
-        mask_file = observation.mask_file
+        mask_file = str(observation.mask_file)
         make_pcad_lis(observation)
         
         specextract_args = {
             'infile': f"{clean}[sky=region({observation.gain_region_file})]",
-            'outroot': f"{observation.gain_region_pi_filename}"[:-3],
+            'outroot': f"{observation.gain_region_arf_file}"[:-4],
             'weight': True,
             'correctpsf': False,
-            'asp': f"{obs_analysis_dir}/pcad_asol1.lis",
+            'asp': f"@{obs_analysis_dir}/pcad_asol1.lis",
             'combine': False,
             'mskfile': mask_file,
             'bkgfile': "",
@@ -229,7 +232,7 @@ def generate_rmf_files_for(observation: Observation) -> bool:
         dmextract_args = {
             'infile': f"{back}[sky=region(" \
                       f"{observation.gain_region_file})][bin pi]",
-            'outfile': observation.background_gain_region_pi_filename,
+            'outfile': str(observation.background_gain_region_pi_filename),
             'clobber': True
         }
         ciao.run_command(rt.dmextract, **dmextract_args)          # type: ignore
@@ -300,6 +303,7 @@ def generate_arf_files_for(observation: Observation) -> bool:
                 
         return True
     except:
+        raise
         return False
 
 
@@ -337,5 +341,25 @@ def print_stage_3_prep(cluster: Cluster) -> None:
     message = io.load_message(Stage.three, 
                               MessageType.preparation, 
                               **message_args)
+    print(message)
+    logging.info(message)
+
+def print_stage_3_comp(cluster: Cluster):
+    """This function prints the instructions for completing stage three of the
+    pipeline. This includes the creation of the region file that will be used to
+    extract the gain for each of the CCDs.
+
+    Parameters
+    ----------
+    cluster : Cluster
+        The ClusterPyXT Cluster object of the cluster you are working on
+    
+    Returns
+    -------
+    None
+    """
+    
+    message = io.load_message(Stage.three, 
+                              MessageType.completion)
     print(message)
     logging.info(message)

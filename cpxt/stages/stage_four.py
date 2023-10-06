@@ -8,6 +8,7 @@ Description: This file contains the code to run stage four of `ClusterPyXT`.
 
 # Internal imports
 from cpxt.chandra.observation import Observation
+from cpxt.core.stages import Stage, MessageType
 from cpxt.chandra.cluster import Cluster
 from cpxt.core.config import CPXTConfig
 from cpxt.chandra.ccd import CCD
@@ -82,3 +83,30 @@ def filter_data_to(cluster:Cluster, low_energy=0.7, high_energy=8.0):
         True or false depending on successful completion
     """
     return False
+
+
+def print_stage_4_prep(cluster: Cluster) -> None:
+    """Prints the stage 4 prep to the screen. 
+    
+    Parameters
+    ----------
+    cluster : cl.ClusterObj
+        The current `cluster` you are working on
+    
+    Returns
+    -------
+    None
+    """
+
+    message_args = {
+        "xray_sb_file": cluster.xray_sb_map_filename,
+        "cluster_name": cluster.name,
+        "master_crop": cluster.master_crop_file
+    }
+
+    message = io.load_message(Stage.four,
+                              MessageType.preparation,
+                              **message_args)
+
+    logger.info(message)
+    print(message)
