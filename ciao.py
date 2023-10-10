@@ -45,7 +45,13 @@ def download_data(cluster):
 
     obsids = [int(obsid) if obsid != '' else None for obsid in cluster.observation_ids]
     
-    with mp.Pool(10) as pool:
+    num_cpus = mp.cpu_count() // 2
+    if num_cpus > 5:
+        num_streams = 3
+    else:
+        num_streams = num_cpus // 2
+
+    with mp.Pool(num_streams) as pool:
         results = pool.map(download_obsid, obsids)
 
     _ = [cluster.observation(obsid).set_ccds() for obsid in obsids]
@@ -134,10 +140,12 @@ def ciao_back(cluster, overwrite=False):
 
                 raise
             try:
+                rt.dmkeypar.punlearn()
                 print(f'Running dmkeypar {acis_file} "GAINFILE" echo=True')
                 acis_gain = rt.dmkeypar(infile=acis_file,
                                         keyword="GAINFILE",
                                         echo=True)
+                rt.dmkeypar.punlearn()
                 print(f'Running dmkeypar {local_background_path} "GAINFILE" echo=True')
                 background_gain = rt.dmkeypar(infile=local_background_path,
                                             keyword="GAINFILE",
@@ -1082,7 +1090,7 @@ def stage_4(cluster: cluster.ClusterObj, args):
     make_nosrc_cropped_xray_sb(cluster)
 
 
-def create_combined_images(cluster):
+def  create_combined_images(cluster):
     from astropy.io import fits
     print("Combining images")
     mask = fits.open("{combined_dir}/acisI_comb_mask.fits".format(
