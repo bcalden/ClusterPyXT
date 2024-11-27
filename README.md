@@ -5,7 +5,7 @@ This is a work in progress and the code is not complete yet as it is in the earl
 
 ![](cpxt/assets/MainGraphic_700x.jpg)
 ## Current beta version for CIAO 4.15
-To use this version of ClusterPyXT please install CIAO-4.15 using conda as outlined by [here](http://cxc.harvard.edu/ciao/download/conda.html). This version of `ClusterPyXT` requires python 3.10 or greater, the default for CIAO 4.15. See below for further details on the `CIAO` installation. 
+To use this version of ClusterPyXT please install CIAO-4.16 using conda as outlined by [here](http://cxc.harvard.edu/ciao/download/conda.html). This version of `ClusterPyXT` requires python 3.11, the default for CIAO 4.15. See below for further details on the `CIAO` installation. 
 
 ## Introduction
 ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature maps, pressure maps, surface brightness maps, and density maps. It is open source and under active development. Please feel free to contribute! See the contribution section below for more details. (Even if you're new to everything!)
@@ -14,13 +14,13 @@ ClusterPyXT is a software pipeline to automate the creation of x-ray temeprature
 ![](docs/graphics/pipeline_overview.jpg)
 
 ## Requirements
-This version of `ClusterPyXT` requires `CIAO-4.15`. The full calibration database (CALDB) is a requirement as well and can be installed with CIAO. To do so, during step 2 of the `conda`  environment creation change `caldb_main` to `caldb`. 
+This version of `ClusterPyXT` requires `CIAO-4.16`. The full calibration database (CALDB) is a requirement as well and can be installed with CIAO. To do so, during step 2 of the `conda`  environment creation change `caldb_main` to `caldb`. 
 
 ### CIAO Installation
-These instructions are for `CIAO 4.15`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/conda.html). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script. Additionally, it is recommended you install the latest version of `Python` during installation. `Python 3.10` is required at a minimum.
+These instructions are for `CIAO 4.16`. Follow the installation instructions at the [Chandra X-ray Center (CXC)](http://cxc.harvard.edu/ciao/download/conda.html). Note, the custom installation option should be used as it allows for the full `CALDB` installation. Make sure to select all `CALDB` options before downloading the installation script. Additionally, it is recommended you install the latest version of `Python` during installation. `ClusterPyXT` was built and tested using `Python 3.11` but may run on a lower version. 
 
-Another requirement for `ClusterPyXT` is the `astropy`, `tqdm`, and `astroquery` python libraries within the `CIAO` environment. `CIAO 4.15` allows for the easy installation of these libraries. 
-After installation, start the `CIAO` environment and run `conda install astropy tqdm astroquery`. 
+Additional requirements for `ClusterPyXT` are the `astropy`, `tqdm`, `lxml`, and `astroquery` python libraries within the `CIAO` environment. `CIAO 4.16` allows for the easy installation of these libraries. 
+After installation, start the `CIAO` environment and run `conda install astropy tqdm lxml astroquery`. 
 
 ### Download ClusterPyXT
 To download this development version of ClusterPyXT, simply run `git clone https://github.com/bcalden/ClusterPyXT.git` and then `git checkout cpxt-dev`.
